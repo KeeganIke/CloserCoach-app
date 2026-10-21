@@ -1,0 +1,100 @@
+// Amplify backend function that hands the browser a short-lived OpenAI
+// Realtime token. The real OPENAI_API_KEY never leaves this function.
+//
+// Both values are Amplify secrets (Amplify console > Hosting > Secrets):
+//   OPENAI_API_KEY  - the secret key from platform.openai.com
+//   ACCESS_CODE     - the code people must enter before starting a call
+
+const MODEL = 'gpt-realtime-2.1'
+const VOICES = { male: 'cedar', female: 'marin' }
+
+type Persona = { name: string; gender: 'male' | 'female'; business: string; detail: string }
+
+const PERSONAS: Persona[] = [
+  { name: 'Dave', gender: 'male', business: "Dave's Auto Repair", detail: 'a 3-bay auto shop with 4 mechanics' },
+  { name: 'Maria', gender: 'female', business: 'Bella Cucina', detail: 'a family Italian restaurant, about 40 seats' },
+  { name: 'Tom', gender: 'male', business: 'Summit Roofing', detail: 'a roofing company with 2 crews' },
+  { name: 'Linda', gender: 'female', business: 'Bright Smiles Dental', detail: 'a dental practice with 2 dentists' },
+  { name: 'Mike', gender: 'male', business: 'Iron Works Gym', detail: 'an independent gym with about 300 members' },
+]
+
+function buildInstructions(p: Persona) {
+  return `You are ${p.name}, the owner of ${p.business}, ${p.detail}. You just picked up your business phone and a salesperson is cold calling you. You are a real person, not an AI, and you never break character or mention being an AI.
+
+Personality: busy, skeptical, a little impatient, but not cruel. You get calls like this constantly and most are a waste of time.
+
+How to talk:
+- Answer the phone with: "${p.business}, this is ${p.name}."
+- Keep every reply short: one or two sentences, like a real phone call. Use natural filler ("look", "yeah", "uh") now and then.
+- Push back with realistic objections, one at a time, such as: "I'm not interested", "We already have someone for that", "We don't have the budget", "Just send me an email", "How did you get this number?", "I'm in the middle of something".
+- Don't make it easy. Only warm up if the rep earns it: they ask a smart question about your business, give a specific and relevant benefit, or handle your objection well. Vague pitches and pushiness make you more annoyed.
+- If the rep has really earned it, agree to a small next step like a short meeting or a follow-up call.
+- If the rep keeps doing badly, end the call politely but firmly ("I've got to go") and stop engaging.
+- If the rep goes silent for a while, say "Hello?"`
+}
+
+function json(statusCode: number, body: object) {
+  return { statusCode, headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) }
+}
+
+type FunctionUrlEvent = {
+  requestContext?: { http?: { method?: string } }
+  body?: string
+  isBase64Encoded?: boolean
+}
+
+export const handler = async (event: FunctionUrlEvent) => {
+  if (event.requestContext?.http?.method !== 'POST') {
+    return json(405, { error: 'Method not allowed' })
+  }
+
+  let body: { accessCode?: string } = {}
+  try {
+    const raw = event.isBase64Encoded ? Buffer.from(event.body || '', 'base64').toString() : event.body
+    body = JSON.parse(raw || '{}')
+  } catch {
+    return json(400, { error: 'Bad request' })
+  }
+
+  if (!process.env.ACCESS_CODE || body.accessCode !== process.env.ACCESS_CODE) {
+    return json(401, { error: 'Wrong access code' })
+  }
+
+  const persona = PERSONAS[Math.floor(Math.random() * PERSONAS.length)]
+
+  const res = await fetch('https://api.openai.com/v1/realtime/client_secrets', {
+    method: 'POST',
+    headers: {
+      Authorization: `Bearer ${process.env.OPENAI_API_KEY}`,
+      'Content-Type': 'application/json',
+    },
+    body: JSON.stringify({
+      // The token only needs to live long enough for the browser to connect.
+      expires_after: { anchor: 'created_at', seconds: 60 },
+      session: {
+        type: 'realtime',
+        model: MODEL,
+        instructions: buildInstructions(persona),
+        max_output_tokens: 300,
+        audio: {
+          input: {
+            transcription: { model: 'gpt-4o-mini-transcribe', language: 'en' },
+            turn_detection: { type: 'semantic_vad', eagerness: 'medium' },
+          },
+          output: { voice: VOICES[persona.gender] },
+        },
+      },
+    }),
+  })
+
+  if (!res.ok) {
+    console.error('OpenAI error', res.status, await res.text())
+    return json(502, { error: 'Could not start the call' })
+  }
+
+  const data = await res.json()
+  return json(200, {
+    token: data.value,
+    persona: { name: persona.name, business: persona.business, detail: persona.detail },
+  })
+}
