@@ -10,7 +10,9 @@ export async function startCall({ tokenUrl, accessCode, onTranscript }) {
   const tokenData = await tokenRes.json().catch(() => ({}))
   if (!tokenRes.ok) throw new Error(tokenData.error || 'Could not start the call')
 
-  const mic = await navigator.mediaDevices.getUserMedia({ audio: true })
+  const mic = await navigator.mediaDevices.getUserMedia({
+    audio: { echoCancellation: true, noiseSuppression: true, autoGainControl: true },
+  })
 
   const pc = new RTCPeerConnection()
   const audio = new Audio()

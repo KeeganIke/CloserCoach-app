@@ -117,11 +117,13 @@ function App() {
               On a call with <strong>{persona?.name}</strong>, owner of {persona?.business}
             </p>
             <p className="persona-detail">{persona?.detail}</p>
-            <p className="timer">{formatTime(secondsLeft)}</p>
-            <button className="button danger" onClick={endCall}>
-              End call
-            </button>
             <Transcript lines={lines} persona={persona} />
+            <div className="call-bar">
+              <span className="timer">{formatTime(secondsLeft)}</span>
+              <button className="button danger" onClick={endCall}>
+                End call
+              </button>
+            </div>
           </>
         )}
 

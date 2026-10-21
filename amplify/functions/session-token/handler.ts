@@ -79,7 +79,10 @@ export const handler = async (event: FunctionUrlEvent) => {
         audio: {
           input: {
             transcription: { model: 'gpt-4o-mini-transcribe', language: 'en' },
-            turn_detection: { type: 'semantic_vad', eagerness: 'medium' },
+            // 'high' replies within ~2s of the rep finishing ('medium' waits up to 4s).
+            turn_detection: { type: 'semantic_vad', eagerness: 'high' },
+            // Filters laptop-mic echo so the owner doesn't hear itself and stop mid-sentence.
+            noise_reduction: { type: 'far_field' },
           },
           output: { voice: VOICES[persona.gender] },
         },

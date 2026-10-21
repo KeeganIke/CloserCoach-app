@@ -45,7 +45,8 @@ body {
   display: flex;
   align-items: center;
   justify-content: center;
-  padding: 24px 16px;
+  /* Extra bottom space so the pinned call bar never covers the transcript. */
+  padding: 24px 16px 112px;
 }
 
 .card {
@@ -125,9 +126,24 @@ body {
   color: var(--muted);
 }
 
+/* Pinned to the bottom of the screen so End call is always visible. */
+.call-bar {
+  position: fixed;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 24px;
+  padding: 16px;
+  background: var(--card);
+  border-top: 1px solid var(--border);
+  box-shadow: 0 -8px 24px rgba(15, 23, 42, 0.08);
+}
+
 .timer {
-  margin: 0 0 24px;
-  font-size: 2rem;
+  font-size: 1.5rem;
   font-variant-numeric: tabular-nums;
 }
 
