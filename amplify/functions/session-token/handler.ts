@@ -74,13 +74,21 @@ export const handler = async (event: FunctionUrlEvent) => {
         type: 'realtime',
         model: MODEL,
         instructions: buildInstructions(persona),
-        max_output_tokens: 300,
+        // Counts audio too; 1000 leaves room for the owner's longer replies.
+        max_output_tokens: 1000,
         audio: {
           input: {
             transcription: { model: 'gpt-4o-mini-transcribe', language: 'en' },
-            // 'high' replies within ~2s of the rep finishing ('medium' waits up to 4s).
+            // Volume-based turn taking: threshold 0.7 (default 0.5) ignores quiet noises,
+            // and the owner replies after 0.8s of silence so short breaths don't count.
             // interrupt_response false: stray mic noise can't cut the owner off mid-sentence.
-            turn_detection: { type: 'semantic_vad', eagerness: 'high', interrupt_response: false },
+            turn_detection: {
+              type: 'server_vad',
+              threshold: 0.7,
+              prefix_padding_ms: 300,
+              silence_duration_ms: 800,
+              interrupt_response: false,
+            },
             // Filters laptop-mic echo so the owner doesn't hear itself and stop mid-sentence.
             noise_reduction: { type: 'far_field' },
           },

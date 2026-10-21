@@ -18,8 +18,16 @@ function formatTime(seconds) {
   return `${m}:${s}`
 }
 
+// Mic noise sometimes gets transcribed as stray words in other scripts ("好", "어 아").
+// Treat rep lines without at least two English letters as noise.
+function isRealLine(l) {
+  if (!l.text) return false
+  if (l.role !== 'user') return true
+  return (l.text.match(/[a-z]/gi) || []).length >= 2
+}
+
 function Transcript({ lines, persona }) {
-  const shown = lines.filter((l) => l.text)
+  const shown = lines.filter(isRealLine)
   if (shown.length === 0) return null
   return (
     <div className="transcript">
