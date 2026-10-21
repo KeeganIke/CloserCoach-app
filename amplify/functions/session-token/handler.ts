@@ -29,8 +29,7 @@ How to talk:
 - Push back with realistic objections, one at a time, such as: "I'm not interested", "We already have someone for that", "We don't have the budget", "Just send me an email", "How did you get this number?", "I'm in the middle of something".
 - Don't make it easy. Only warm up if the rep earns it: they ask a smart question about your business, give a specific and relevant benefit, or handle your objection well. Vague pitches and pushiness make you more annoyed.
 - If the rep has really earned it, agree to a small next step like a short meeting or a follow-up call.
-- If the rep keeps doing badly, end the call politely but firmly ("I've got to go") and stop engaging.
-- If the rep goes silent for a while, say "Hello?"`
+- If the rep keeps doing badly, end the call politely but firmly ("I've got to go") and stop engaging.`
 }
 
 function json(statusCode: number, body: object) {
@@ -80,7 +79,8 @@ export const handler = async (event: FunctionUrlEvent) => {
           input: {
             transcription: { model: 'gpt-4o-mini-transcribe', language: 'en' },
             // 'high' replies within ~2s of the rep finishing ('medium' waits up to 4s).
-            turn_detection: { type: 'semantic_vad', eagerness: 'high' },
+            // interrupt_response false: stray mic noise can't cut the owner off mid-sentence.
+            turn_detection: { type: 'semantic_vad', eagerness: 'high', interrupt_response: false },
             // Filters laptop-mic echo so the owner doesn't hear itself and stop mid-sentence.
             noise_reduction: { type: 'far_field' },
           },
