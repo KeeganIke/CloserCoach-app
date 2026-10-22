@@ -48,7 +48,9 @@ function App() {
   const [persona, setPersona] = useState(null)
   const [lines, setLines] = useState([])
   const [secondsLeft, setSecondsLeft] = useState(MAX_CALL_SECONDS)
+  const [retryAudio, setRetryAudio] = useState(null) // set when the browser blocks the owner's audio
   const callRef = useRef(null)
+  const stickToBottom = useRef(true)
 
   const endCall = () => {
     if (!callRef.current) return
@@ -61,6 +63,8 @@ function App() {
     e.preventDefault()
     setError('')
     setLines([])
+    setRetryAudio(null)
+    stickToBottom.current = true
     setPhase('connecting')
     try {
       localStorage.setItem(CODE_KEY, accessCode)
@@ -68,7 +72,12 @@ function App() {
       // Remembering the code is only a convenience.
     }
     try {
-      const call = await startCall({ tokenUrl: TOKEN_URL, accessCode, onTranscript: setLines })
+      const call = await startCall({
+        tokenUrl: TOKEN_URL,
+        accessCode,
+        onTranscript: setLines,
+        onAudioBlocked: (retry) => setRetryAudio(() => retry),
+      })
       callRef.current = call
       setPersona(call.persona)
       setSecondsLeft(MAX_CALL_SECONDS)
@@ -89,6 +98,28 @@ function App() {
     const t = setTimeout(() => setSecondsLeft((s) => s - 1), 1000)
     return () => clearTimeout(t)
   }, [phase, secondsLeft])
+
+  const turnOnSound = () => {
+    retryAudio?.()
+      .then(() => setRetryAudio(null))
+      .catch(() => {})
+  }
+
+  // Follow new transcript lines during a call, unless the rep scrolled up to reread.
+  useEffect(() => {
+    const onScroll = () => {
+      const fromBottom = document.documentElement.scrollHeight - (window.innerHeight + window.scrollY)
+      stickToBottom.current = fromBottom < 120
+    }
+    window.addEventListener('scroll', onScroll)
+    return () => window.removeEventListener('scroll', onScroll)
+  }, [])
+
+  useEffect(() => {
+    if (phase === 'live' && stickToBottom.current) {
+      window.scrollTo({ top: document.documentElement.scrollHeight })
+    }
+  }, [lines, phase])
 
   // Hang up if the page is closed mid-call.
   useEffect(() => () => callRef.current?.hangup(), [])
@@ -127,6 +158,11 @@ function App() {
             <p className="persona-detail">{persona?.detail}</p>
             <Transcript lines={lines} persona={persona} />
             <div className="call-bar">
+              {retryAudio && (
+                <button className="button primary" onClick={turnOnSound}>
+                  Tap to hear {persona?.name || 'the owner'}
+                </button>
+              )}
               <span className="timer">{formatTime(secondsLeft)}</span>
               <button className="button danger" onClick={endCall}>
                 End call

@@ -1,7 +1,15 @@
 // Connects the browser mic and speaker to an OpenAI Realtime session over WebRTC.
 
-export async function startCall({ tokenUrl, accessCode, onTranscript }) {
+export async function startCall({ tokenUrl, accessCode, onTranscript, onAudioBlocked }) {
   if (!tokenUrl) throw new Error("The call backend isn't deployed yet.")
+
+  // Browsers (Safari especially) only allow sound that starts during a click. The
+  // owner's audio arrives seconds later, so the player is created and started here,
+  // before the first await, while the Start call click still counts.
+  const audio = new Audio()
+  audio.autoplay = true
+  audio.play().catch(() => {})
+
   const tokenRes = await fetch(tokenUrl, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
@@ -15,9 +23,11 @@ export async function startCall({ tokenUrl, accessCode, onTranscript }) {
   })
 
   const pc = new RTCPeerConnection()
-  const audio = new Audio()
-  audio.autoplay = true
-  pc.ontrack = (e) => (audio.srcObject = e.streams[0])
+  pc.ontrack = (e) => {
+    audio.srcObject = e.streams[0]
+    // If the browser still blocks it, let the page offer a button that retries play().
+    audio.play().catch(() => onAudioBlocked?.(() => audio.play()))
+  }
   pc.addTrack(mic.getTracks()[0])
 
   // Transcript lines in call order, keyed by conversation item id.
