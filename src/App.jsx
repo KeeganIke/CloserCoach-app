@@ -2,6 +2,7 @@ import { useEffect, useRef, useState } from 'react'
 import { startCall } from './realtimeCall.js'
 import { fetchReport } from './report.js'
 import Report from './Report.jsx'
+import GradingProgress from './GradingProgress.jsx'
 import { MAX_CALL_SECONDS, REPORT_URL, TOKEN_URL } from './config.js'
 
 const CODE_KEY = 'closer-coach-access-code'
@@ -194,9 +195,7 @@ function App() {
         {phase === 'ended' && (
           <>
             <p className="calling">Call with {persona?.name} ended</p>
-            {reportStatus === 'loading' && (
-              <p className="description">Your coach is reviewing the call. This takes about 20 seconds…</p>
-            )}
+            {reportStatus === 'loading' && <GradingProgress />}
             {reportStatus === 'error' && (
               <div className="report-error">
                 <p className="error">{reportError}</p>
@@ -210,9 +209,11 @@ function App() {
               <summary>Show transcript</summary>
               <Transcript lines={lines} persona={persona} />
             </details>
-            <button className="button primary" onClick={() => setPhase('setup')}>
-              New call
-            </button>
+            {reportStatus !== 'loading' && (
+              <button className="button secondary" onClick={() => setPhase('setup')}>
+                Start another call
+              </button>
+            )}
           </>
         )}
       </div>

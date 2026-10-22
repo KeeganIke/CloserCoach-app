@@ -1,7 +1,6 @@
 const OUTCOMES = {
   meeting_booked: { label: 'Meeting booked', tone: 'good' },
-  conditional_next_step: { label: 'Conditional next step', tone: 'mixed' },
-  no_next_step: { label: 'No next step', tone: 'bad' },
+  no_meeting: { label: 'No meeting booked', tone: 'bad' },
 }
 
 const VERDICTS = {
@@ -28,7 +27,7 @@ function List({ title, items }) {
 
 export default function Report({ report }) {
   const score = clamp(report.overallScore, 0, 100)
-  const outcome = OUTCOMES[report.outcome] || OUTCOMES.no_next_step
+  const outcome = OUTCOMES[report.outcome] || OUTCOMES.no_meeting
 
   return (
     <div className="report">
@@ -76,7 +75,7 @@ export default function Report({ report }) {
       {report.objections?.length > 0 && (
         <section className="report-section">
           <h3>Objections</h3>
-          {report.objections.map((o, i) => {
+          {report.objections.slice(0, 3).map((o, i) => {
             const verdict = VERDICTS[o.verdict] || VERDICTS.mixed
             return (
               <div key={i} className="objection">
@@ -85,7 +84,7 @@ export default function Report({ report }) {
                   <span className={`tag ${verdict.tone}`}>{verdict.label}</span>
                 </div>
                 <p>
-                  <strong>You said:</strong> {o.yourResponse}
+                  <strong>You said:</strong> {o.yourResponse.replace(/^you (initially )?said:?\s*/i, '')}
                 </p>
                 <p className="muted">{o.why}</p>
                 <p className="better-line">

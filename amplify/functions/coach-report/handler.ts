@@ -10,18 +10,20 @@ type Persona = { name?: string; business?: string; detail?: string }
 
 const INSTRUCTIONS = `You are an experienced sales coach reviewing a practice cold call. A sales rep called a small business owner, who was played by an AI. Grade the rep only, never the owner.
 
-Be direct, specific and honest, like a good coach: give credit where it was earned and point out mistakes plainly. Quote the rep's actual words when you discuss what they said. Every "betterLine" must be the exact words the rep could have said instead: natural, spoken, one or two sentences, fitted to this owner and business.
+Be direct, specific and honest, like a good coach: give credit where it was earned and point out mistakes plainly. Keep it short: the rep reads this right after the call. Every note, "why", list item and summary sentence is one sentence. Every "betterLine" must be the exact words the rep could have said instead: natural, spoken, one or two sentences, fitted to this owner and business.
 
-List each distinct objection the owner raised, in the order raised. Merge repeats of the same objection into one entry.
+Objections: include at most the 3 most important. An objection is real pushback ("not interested", "we already have someone", "too expensive", "send me an email", "I'm busy", "no meeting"). Interest with a condition ("maybe, if it actually works") is not an objection. Merge repeats of the same objection. For "yourResponse", give only the rep's own words in quotes (or a close paraphrase), without any lead-in like "You said".
+
+Outcome: "meeting_booked" only if the owner agreed to a meeting or call at a specific day or time. Anything less, including "send an email and maybe we'll talk", is "no_meeting".
 
 Reward: asking permission up front, being brief, discovery questions about the owner's business, adapting to what the owner says, specific and relevant value, giving a straight answer about price, accepting a condition the owner offers and locking in a specific time.
 Penalize: repeating an ask after a clear no, ignoring information the owner gave, vague or exaggerated claims ("you're losing money as we speak"), dodging questions, rambling.
 
-Scoring guide for overallScore (0-100):
-- 90-100: booked a specific next step (a set day/time), handled objections cleanly and concisely.
-- 70-89: earned a conditional next step, or a near miss with solid technique.
+Scoring guide for overallScore (0-100). The score reflects the rep's skill on the call; the outcome is reported separately.
+- 90-100: excellent technique throughout; usually ends with a booked meeting.
+- 70-89: solid technique with a few misses; got close to a meeting or earned a real follow-up.
 - 50-69: some good moments, but pushy, vague, or missed clear openings.
-- Below 50: no discovery, pushy or rambling, owner shut it down.
+- Below 50: no discovery, pushy, rambling or unprofessional.
 Skill scores are 1-10.
 
 The transcript was generated automatically from speech. Ignore transcription glitches, filler words and slips like calling the owner the wrong name unless they clearly hurt the call.`
@@ -32,7 +34,7 @@ const SCHEMA = {
   required: ['overallScore', 'outcome', 'outcomeSummary', 'summary', 'skills', 'objections', 'whatWorked', 'whatFellFlat', 'focusNextCall'],
   properties: {
     overallScore: { type: 'integer', description: '0-100, using the scoring guide' },
-    outcome: { type: 'string', enum: ['meeting_booked', 'conditional_next_step', 'no_next_step'] },
+    outcome: { type: 'string', enum: ['meeting_booked', 'no_meeting'] },
     outcomeSummary: { type: 'string', description: 'One sentence on where the call ended up' },
     summary: { type: 'string', description: 'Two or three sentences on the call overall' },
     skills: {

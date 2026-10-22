@@ -117,6 +117,13 @@ body {
   background: var(--accent);
 }
 
+.button.secondary {
+  background: transparent;
+  color: var(--muted);
+  border: 1px solid var(--border);
+  font-weight: 500;
+}
+
 .button.danger {
   background: var(--danger);
 }
@@ -384,4 +391,27 @@ body {
 
 .transcript-toggle .transcript {
   margin-top: 16px;
+}
+
+.grading {
+  margin: 32px 0;
+}
+
+.grading-text {
+  margin: 0 0 12px;
+  font-weight: 600;
+}
+
+.grading-meter {
+  height: 10px;
+}
+
+.grading-meter .meter-fill {
+  transition: width 0.2s linear;
+}
+
+.grading-hint {
+  margin: 12px 0 0;
+  font-size: 0.875rem;
+  color: var(--muted);
 }
