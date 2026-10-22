@@ -1,6 +1,8 @@
 import { useEffect, useRef, useState } from 'react'
 import { startCall } from './realtimeCall.js'
-import { MAX_CALL_SECONDS, TOKEN_URL } from './config.js'
+import { fetchReport } from './report.js'
+import Report from './Report.jsx'
+import { MAX_CALL_SECONDS, REPORT_URL, TOKEN_URL } from './config.js'
 
 const CODE_KEY = 'closer-coach-access-code'
 
@@ -49,14 +51,32 @@ function App() {
   const [lines, setLines] = useState([])
   const [secondsLeft, setSecondsLeft] = useState(MAX_CALL_SECONDS)
   const [retryAudio, setRetryAudio] = useState(null) // set when the browser blocks the owner's audio
+  const [report, setReport] = useState(null)
+  const [reportStatus, setReportStatus] = useState('idle') // idle | loading | done | error
+  const [reportError, setReportError] = useState('')
   const callRef = useRef(null)
   const stickToBottom = useRef(true)
 
+  const gradeCall = async (callLines) => {
+    setReport(null)
+    setReportError('')
+    setReportStatus('loading')
+    try {
+      setReport(await fetchReport({ reportUrl: REPORT_URL, accessCode, persona, lines: callLines.filter(isRealLine) }))
+      setReportStatus('done')
+    } catch (err) {
+      setReportError(err.message)
+      setReportStatus('error')
+    }
+  }
+
   const endCall = () => {
     if (!callRef.current) return
-    setLines(callRef.current.hangup())
+    const finalLines = callRef.current.hangup()
     callRef.current = null
+    setLines(finalLines)
     setPhase('ended')
+    gradeCall(finalLines)
   }
 
   const handleStart = async (e) => {
@@ -173,9 +193,23 @@ function App() {
 
         {phase === 'ended' && (
           <>
-            <p className="calling">Call ended</p>
-            <p className="description">Your coaching report is coming in the next build.</p>
-            <Transcript lines={lines} persona={persona} />
+            <p className="calling">Call with {persona?.name} ended</p>
+            {reportStatus === 'loading' && (
+              <p className="description">Your coach is reviewing the call. This takes about 20 seconds…</p>
+            )}
+            {reportStatus === 'error' && (
+              <div className="report-error">
+                <p className="error">{reportError}</p>
+                <button className="button primary" onClick={() => gradeCall(lines)}>
+                  Try again
+                </button>
+              </div>
+            )}
+            {reportStatus === 'done' && report && <Report report={report} />}
+            <details className="transcript-toggle">
+              <summary>Show transcript</summary>
+              <Transcript lines={lines} persona={persona} />
+            </details>
             <button className="button primary" onClick={() => setPhase('setup')}>
               New call
             </button>

@@ -9,6 +9,11 @@
   --danger: #c62828;
   --user-bg: #e6edfc;
   --owner-bg: #f0f2f5;
+  --good: #1b7a3d;
+  --good-bg: #e3f4e8;
+  --mixed: #8a5a00;
+  --mixed-bg: #fdf1d8;
+  --bad-bg: #fbe4e4;
 
   font-family: system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif;
   color: var(--text);
@@ -28,6 +33,11 @@
     --danger: #ef5350;
     --user-bg: #1f2a44;
     --owner-bg: #222a36;
+    --good: #6fd08f;
+    --good-bg: #183324;
+    --mixed: #f0c060;
+    --mixed-bg: #3a2f14;
+    --bad-bg: #3a1c1f;
   }
 }
 
@@ -175,4 +185,203 @@ body {
   color: var(--muted);
   text-transform: uppercase;
   letter-spacing: 0.06em;
+}
+
+.report {
+  text-align: left;
+  margin: 24px 0;
+}
+
+.report-header {
+  display: flex;
+  align-items: center;
+  gap: 20px;
+  margin-bottom: 16px;
+}
+
+.score {
+  flex: none;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  width: 96px;
+  height: 96px;
+  border-radius: 50%;
+  background: var(--accent-soft);
+  color: var(--accent);
+}
+
+.score-number {
+  font-size: 2.25rem;
+  font-weight: 700;
+  line-height: 1;
+}
+
+.score-label {
+  font-size: 0.8rem;
+  font-weight: 600;
+}
+
+.outcome-summary,
+.report-summary {
+  margin: 8px 0 0;
+  line-height: 1.5;
+}
+
+.report-summary {
+  margin-bottom: 20px;
+}
+
+.tag {
+  display: inline-block;
+  padding: 4px 10px;
+  border-radius: 999px;
+  font-size: 0.75rem;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  white-space: nowrap;
+}
+
+.tag.good {
+  background: var(--good-bg);
+  color: var(--good);
+}
+
+.tag.mixed {
+  background: var(--mixed-bg);
+  color: var(--mixed);
+}
+
+.tag.bad {
+  background: var(--bad-bg);
+  color: var(--danger);
+}
+
+.focus {
+  padding: 16px;
+  border-radius: 12px;
+  background: var(--accent-soft);
+  margin-bottom: 24px;
+}
+
+.focus h3 {
+  margin: 0 0 6px;
+  font-size: 0.8rem;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  color: var(--accent);
+}
+
+.focus p {
+  margin: 0;
+  line-height: 1.5;
+  font-weight: 600;
+}
+
+.report-section {
+  margin-bottom: 24px;
+}
+
+.report-section h3 {
+  margin: 0 0 12px;
+  font-size: 1.1rem;
+}
+
+.skill {
+  margin-bottom: 14px;
+}
+
+.skill-row {
+  display: flex;
+  justify-content: space-between;
+  font-weight: 600;
+  margin-bottom: 4px;
+}
+
+.skill-score {
+  font-variant-numeric: tabular-nums;
+}
+
+.meter {
+  height: 8px;
+  border-radius: 999px;
+  background: var(--owner-bg);
+  overflow: hidden;
+}
+
+.meter-fill {
+  height: 100%;
+  border-radius: 999px;
+  background: var(--accent);
+}
+
+.skill-note {
+  margin: 6px 0 0;
+  color: var(--muted);
+  line-height: 1.5;
+}
+
+.objection {
+  padding: 14px 16px;
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  margin-bottom: 12px;
+}
+
+.objection p {
+  margin: 8px 0 0;
+  line-height: 1.5;
+}
+
+.objection-top {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.objection .objection-quote {
+  margin: 0;
+  font-weight: 600;
+}
+
+.muted {
+  color: var(--muted);
+}
+
+.better-line {
+  padding: 10px 12px;
+  border-radius: 8px;
+  background: var(--good-bg);
+}
+
+.report-list {
+  margin: 0;
+  padding-left: 20px;
+  line-height: 1.6;
+}
+
+.report-error {
+  margin: 16px 0 24px;
+}
+
+.report-error .error {
+  margin-bottom: 12px;
+}
+
+.transcript-toggle {
+  margin: 0 0 24px;
+  text-align: left;
+}
+
+.transcript-toggle summary {
+  cursor: pointer;
+  font-weight: 600;
+  color: var(--accent);
+}
+
+.transcript-toggle .transcript {
+  margin-top: 16px;
 }

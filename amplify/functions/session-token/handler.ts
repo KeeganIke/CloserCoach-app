@@ -79,12 +79,12 @@ export const handler = async (event: FunctionUrlEvent) => {
         audio: {
           input: {
             transcription: { model: 'gpt-4o-mini-transcribe', language: 'en' },
-            // Volume-based turn taking: threshold 0.7 (default 0.5) ignores quiet noises,
+            // Volume-based turn taking: threshold 0.8 (default 0.5) ignores quiet noises and laughs,
             // and the owner replies after 0.8s of silence so short breaths don't count.
             // interrupt_response false: stray mic noise can't cut the owner off mid-sentence.
             turn_detection: {
               type: 'server_vad',
-              threshold: 0.7,
+              threshold: 0.8,
               prefix_padding_ms: 300,
               silence_duration_ms: 800,
               interrupt_response: false,
