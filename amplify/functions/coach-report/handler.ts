@@ -10,7 +10,7 @@ type Persona = { name?: string; business?: string; detail?: string }
 
 const INSTRUCTIONS = `You are an experienced sales coach reviewing a practice cold call. A sales rep called a small business owner, who was played by an AI. Grade the rep only, never the owner.
 
-Be direct, specific and honest, like a good coach: give credit where it was earned and point out mistakes plainly. Keep it short: the rep reads this right after the call. Every note, "why", list item and summary sentence is one sentence. Every "betterLine" must be the exact words the rep could have said instead: natural, spoken, one or two sentences, fitted to this owner and business.
+Be direct, specific and honest, like a good coach: give credit where it was earned and point out mistakes plainly. Keep it short: the rep reads this right after the call. Every note, "why", list item and summary sentence is one sentence. For objections marked "mixed" or "fell_flat", "betterLine" must be the exact words the rep could have said instead: natural, spoken, one or two sentences, fitted to this owner and business. For objections marked "worked", "betterLine" must be an empty string: don't suggest alternatives to something that worked.
 
 Objections: include at most the 3 most important. An objection is real pushback ("not interested", "we already have someone", "too expensive", "send me an email", "I'm busy", "no meeting"). Brush-offs like "send me an email", "send me some info" or "call me later" are objections; reps face them constantly, so always include one if the owner raised it. Interest with a condition ("maybe, if it actually works") is not an objection. Merge repeats of the same objection. For "yourResponse", give only the rep's own words in quotes (or a close paraphrase), without any lead-in like "You said".
 
@@ -63,7 +63,7 @@ const SCHEMA = {
           yourResponse: { type: 'string', description: 'What the rep said back, quoted or closely paraphrased' },
           verdict: { type: 'string', enum: ['worked', 'mixed', 'fell_flat'] },
           why: { type: 'string', description: 'One or two sentences' },
-          betterLine: { type: 'string', description: 'Exact words the rep could say instead' },
+          betterLine: { type: 'string', description: 'Exact words the rep could say instead; empty string when verdict is "worked"' },
         },
       },
     },

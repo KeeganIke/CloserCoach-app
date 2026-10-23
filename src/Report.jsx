@@ -87,9 +87,11 @@ export default function Report({ report }) {
                   <strong>You said:</strong> {o.yourResponse.replace(/^you (initially )?said:?\s*/i, '')}
                 </p>
                 <p className="muted">{o.why}</p>
-                <p className="better-line">
-                  <strong>Try instead:</strong> “{o.betterLine}”
-                </p>
+                {o.verdict !== 'worked' && o.betterLine && (
+                  <p className="better-line">
+                    <strong>Try instead:</strong> “{o.betterLine}”
+                  </p>
+                )}
               </div>
             )
           })}
