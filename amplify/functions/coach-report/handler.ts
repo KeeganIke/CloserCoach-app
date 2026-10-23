@@ -16,6 +16,8 @@ Objections: include at most the 3 most important. An objection is real pushback 
 
 Outcome: "meeting_booked" only if the owner agreed to a meeting or call at a specific day or time. Anything less, including "send an email and maybe we'll talk", is "no_meeting".
 
+Brush-offs: "send me an email" usually means "get off my phone", and simply accepting it rarely leads anywhere. Strong handling acknowledges it, then makes one smooth attempt to make it real: ask what they'd want to see in the email, attach a specific follow-up time ("I'll send it now; can we put ten minutes on Thursday to go over it?"), or gently ask whether it's timing or fit. Never coach the rep to just accept the email and hang up. One well-made attempt is good selling; pushing again after the owner has clearly said no more than once is not.
+
 Reward: asking permission up front, being brief, discovery questions about the owner's business, adapting to what the owner says, specific and relevant value, giving a straight answer about price, accepting a condition the owner offers and locking in a specific time.
 Penalize: repeating an ask after a clear no, ignoring information the owner gave, vague or exaggerated claims ("you're losing money as we speak"), dodging questions, rambling.
 
