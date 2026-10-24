@@ -7,7 +7,12 @@ import { MAX_CALL_SECONDS, REPORT_URL, TOKEN_URL } from './config.js'
 
 const CODE_KEY = 'closer-coach-access-code'
 
+// A shared link like /?code=XYZ fills in the access code so people can start a call
+// right away. Changing ACCESS_CODE in Amplify secrets turns old links off.
+const linkCode = new URLSearchParams(window.location.search).get('code') || ''
+
 function readSavedCode() {
+  if (linkCode) return linkCode
   try {
     return localStorage.getItem(CODE_KEY) || ''
   } catch {
@@ -156,14 +161,17 @@ function App() {
               Practice your cold call. A busy small business owner will pick up. Deliver your pitch out
               loud and handle their objections. Calls end after {MAX_CALL_SECONDS / 60} minutes.
             </p>
-            <input
-              className="code-input"
-              type="password"
-              placeholder="Access code"
-              value={accessCode}
-              onChange={(e) => setAccessCode(e.target.value)}
-              required
-            />
+            {/* Hidden when the link supplied the code, unless that code was rejected. */}
+            {(!linkCode || /access code/i.test(error)) && (
+              <input
+                className="code-input"
+                type="password"
+                placeholder="Access code"
+                value={accessCode}
+                onChange={(e) => setAccessCode(e.target.value)}
+                required
+              />
+            )}
             <button className="button primary" type="submit" disabled={phase === 'connecting'}>
               {phase === 'connecting' ? 'Dialing…' : 'Start call'}
             </button>
