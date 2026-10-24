@@ -9,7 +9,9 @@ const CODE_KEY = 'closer-coach-access-code'
 
 // A shared link like /?code=XYZ fills in the access code so people can start a call
 // right away. Changing ACCESS_CODE in Amplify secrets turns old links off.
-const linkCode = new URLSearchParams(window.location.search).get('code') || ''
+// Any capitalization of "code" works, since email apps autocorrect it to "Code".
+const linkCode =
+  [...new URLSearchParams(window.location.search)].find(([key]) => key.toLowerCase() === 'code')?.[1] || ''
 
 function readSavedCode() {
   if (linkCode) return linkCode
