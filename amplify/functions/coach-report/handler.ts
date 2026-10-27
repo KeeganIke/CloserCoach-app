@@ -92,7 +92,7 @@ Hard rules:
 
 ## Evidence
 
-Evaluate only what the rep actually said and did. Never invent quotes, events or objections. Every quote ("evidence", "quote") must be copied word for word from a single transcript line; use an empty string when there is nothing to quote. The transcript has no timestamps; do not output any. Keep the quote (what was observed) separate from the rationale (your interpretation). Every rating other than "na" needs a one-sentence rationale; for "na", say briefly why it couldn't be evaluated.
+Evaluate only what the rep actually said and did. Never invent quotes, events or objections. Every quote ("evidence", "quote") must be copied word for word from a single transcript line; use an empty string when there is nothing to quote. The transcript has no timestamps; do not output any. Keep the quote (what was observed) separate from the rationale (your interpretation). The quote is shown right after the rationale, so the rationale must never restate or paraphrase it; say why it helped or hurt instead. Bad: "You asked for thirty seconds." + "Do you have thirty seconds?" Good: "Asking for a moment gave the owner an easy way in instead of a pitch." + "Do you have thirty seconds?" The same goes for strengths and missed opportunities. Every rating other than "na" needs a one-sentence rationale; for "na", say briefly why it couldn't be evaluated.
 
 ## Outcome and qualification (separate from the ratings)
 
