@@ -5,7 +5,7 @@ export const coachReport = defineFunction({
   entry: './handler.ts',
   runtime: 22,
   // Grading with a reasoning model can take 20-40 seconds.
-  timeoutSeconds: 90,
+  timeoutSeconds: 150,
   environment: {
     OPENAI_API_KEY: secret('OPENAI_API_KEY'),
     ACCESS_CODE: secret('ACCESS_CODE'),
