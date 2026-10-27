@@ -1,6 +1,6 @@
 // Connects the browser mic and speaker to an OpenAI Realtime session over WebRTC.
 
-export async function startCall({ tokenUrl, accessCode, level, offer, onTranscript, onAudioBlocked }) {
+export async function startCall({ tokenUrl, accessCode, offer, onTranscript, onAudioBlocked }) {
   if (!tokenUrl) throw new Error("The call backend isn't deployed yet.")
 
   // Browsers (Safari especially) only allow sound that starts during a click. The
@@ -13,7 +13,7 @@ export async function startCall({ tokenUrl, accessCode, level, offer, onTranscri
   const tokenRes = await fetch(tokenUrl, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ accessCode, level, offer }),
+    body: JSON.stringify({ accessCode, offer }),
   })
   const tokenData = await tokenRes.json().catch(() => ({}))
   if (!tokenRes.ok) throw new Error(tokenData.error || 'Could not start the call')

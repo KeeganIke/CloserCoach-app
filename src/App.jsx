@@ -7,16 +7,9 @@ import { MAX_CALL_SECONDS, REPORT_URL, TOKEN_URL } from './config.js'
 
 const CODE_KEY = 'closer-coach-access-code'
 const OFFER_KEY = 'closer-coach-offer'
-const LEVEL_KEY = 'closer-coach-level'
 const MAX_OFFER_CHARS = 600
 
-const LEVELS = [
-  { id: 'easy', label: 'Easy', blurb: 'Patient owner, common objections, forgiving grading' },
-  { id: 'normal', label: 'Normal', blurb: 'Busy and skeptical, a mix of objections' },
-  { id: 'hard', label: 'Hard', blurb: 'Suspicious owner, tough objections, strict grading' },
-]
-
-// Offer and level are per-device conveniences; the app works without storage.
+// The offer is a per-device convenience; the app works without storage.
 function readStored(key, fallback) {
   try {
     return localStorage.getItem(key) ?? fallback
@@ -90,8 +83,6 @@ function App() {
   const [reportError, setReportError] = useState('')
   const [offer, setOffer] = useState(() => readStored(OFFER_KEY, ''))
   const [editingOffer, setEditingOffer] = useState(() => !readStored(OFFER_KEY, ''))
-  const [level, setLevel] = useState(() => readStored(LEVEL_KEY, 'normal'))
-  const [callLevel, setCallLevel] = useState('normal') // the level the current/last call used
   const callRef = useRef(null)
   const stickToBottom = useRef(true)
 
@@ -105,7 +96,6 @@ function App() {
           reportUrl: REPORT_URL,
           accessCode,
           persona,
-          level: callLevel,
           offer,
           lines: callLines.filter(isRealLine),
         }),
@@ -136,12 +126,10 @@ function App() {
     store(CODE_KEY, accessCode)
     store(OFFER_KEY, offer)
     setEditingOffer(!offer)
-    setCallLevel(level)
     try {
       const call = await startCall({
         tokenUrl: TOKEN_URL,
         accessCode,
-        level,
         offer,
         onTranscript: setLines,
         onAudioBlocked: (retry) => setRetryAudio(() => retry),
@@ -244,25 +232,6 @@ function App() {
               )}
             </section>
 
-            <fieldset className="setup-section level-picker">
-              <legend className="setup-heading">Difficulty</legend>
-              {LEVELS.map((l) => (
-                <label key={l.id} className={`level-option ${level === l.id ? 'selected' : ''}`}>
-                  <input
-                    type="radio"
-                    name="level"
-                    value={l.id}
-                    checked={level === l.id}
-                    onChange={() => {
-                      setLevel(l.id)
-                      store(LEVEL_KEY, l.id)
-                    }}
-                  />
-                  <span className="level-label">{l.label}</span>
-                  <span className="level-blurb">{l.blurb}</span>
-                </label>
-              ))}
-            </fieldset>
 
             {/* Hidden when the link supplied the code, unless that code was rejected. */}
             {(!linkCode || /access code/i.test(error)) && (
@@ -288,7 +257,7 @@ function App() {
               On a call with <strong>{persona?.name}</strong>, owner of {persona?.business}
             </p>
             <p className="persona-detail">
-              {persona?.detail} · <span className={`level-tag ${callLevel}`}>{callLevel}</span>
+              {persona?.detail}
             </p>
             <Transcript lines={lines} persona={persona} />
             <div className="call-bar">
@@ -308,7 +277,7 @@ function App() {
         {phase === 'ended' && (
           <>
             <p className="calling">
-              Call with {persona?.name} ended · <span className={`level-tag ${callLevel}`}>{callLevel}</span>
+              Call with {persona?.name} ended
             </p>
             {reportStatus === 'loading' && <GradingProgress />}
             {reportStatus === 'error' && (
