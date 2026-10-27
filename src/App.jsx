@@ -6,6 +6,32 @@ import GradingProgress from './GradingProgress.jsx'
 import { MAX_CALL_SECONDS, REPORT_URL, TOKEN_URL } from './config.js'
 
 const CODE_KEY = 'closer-coach-access-code'
+const OFFER_KEY = 'closer-coach-offer'
+const LEVEL_KEY = 'closer-coach-level'
+const MAX_OFFER_CHARS = 600
+
+const LEVELS = [
+  { id: 'easy', label: 'Easy', blurb: 'Patient owner, common objections, forgiving grading' },
+  { id: 'normal', label: 'Normal', blurb: 'Busy and skeptical, a mix of objections' },
+  { id: 'hard', label: 'Hard', blurb: 'Suspicious owner, tough objections, strict grading' },
+]
+
+// Offer and level are per-device conveniences; the app works without storage.
+function readStored(key, fallback) {
+  try {
+    return localStorage.getItem(key) ?? fallback
+  } catch {
+    return fallback
+  }
+}
+
+function store(key, value) {
+  try {
+    localStorage.setItem(key, value)
+  } catch {
+    // Not remembering is fine.
+  }
+}
 
 // A shared link like /?code=XYZ fills in the access code so people can start a call
 // right away. Changing ACCESS_CODE in Amplify secrets turns old links off.
@@ -62,6 +88,10 @@ function App() {
   const [report, setReport] = useState(null)
   const [reportStatus, setReportStatus] = useState('idle') // idle | loading | done | error
   const [reportError, setReportError] = useState('')
+  const [offer, setOffer] = useState(() => readStored(OFFER_KEY, ''))
+  const [editingOffer, setEditingOffer] = useState(() => !readStored(OFFER_KEY, ''))
+  const [level, setLevel] = useState(() => readStored(LEVEL_KEY, 'normal'))
+  const [callLevel, setCallLevel] = useState('normal') // the level the current/last call used
   const callRef = useRef(null)
   const stickToBottom = useRef(true)
 
@@ -70,7 +100,16 @@ function App() {
     setReportError('')
     setReportStatus('loading')
     try {
-      setReport(await fetchReport({ reportUrl: REPORT_URL, accessCode, persona, lines: callLines.filter(isRealLine) }))
+      setReport(
+        await fetchReport({
+          reportUrl: REPORT_URL,
+          accessCode,
+          persona,
+          level: callLevel,
+          offer,
+          lines: callLines.filter(isRealLine),
+        }),
+      )
       setReportStatus('done')
     } catch (err) {
       setReportError(err.message)
@@ -94,15 +133,16 @@ function App() {
     setRetryAudio(null)
     stickToBottom.current = true
     setPhase('connecting')
-    try {
-      localStorage.setItem(CODE_KEY, accessCode)
-    } catch {
-      // Remembering the code is only a convenience.
-    }
+    store(CODE_KEY, accessCode)
+    store(OFFER_KEY, offer)
+    setEditingOffer(!offer)
+    setCallLevel(level)
     try {
       const call = await startCall({
         tokenUrl: TOKEN_URL,
         accessCode,
+        level,
+        offer,
         onTranscript: setLines,
         onAudioBlocked: (retry) => setRetryAudio(() => retry),
       })
@@ -160,9 +200,70 @@ function App() {
         {(phase === 'setup' || phase === 'connecting') && (
           <form onSubmit={handleStart}>
             <p className="description">
-              Practice your cold call. A busy small business owner will pick up. Deliver your pitch out
-              loud and handle their objections. Calls end after {MAX_CALL_SECONDS / 60} minutes.
+              Practice your cold call. A small business owner will pick up. Deliver your pitch out loud,
+              handle their objections, and get a coaching report when you hang up. Calls end after{' '}
+              {MAX_CALL_SECONDS / 60} minutes.
             </p>
+
+            <section className="setup-section">
+              <h2 className="setup-heading">What are you selling?</h2>
+              {editingOffer ? (
+                <>
+                  <textarea
+                    className="offer-input"
+                    rows={4}
+                    maxLength={MAX_OFFER_CHARS}
+                    placeholder="e.g. I run Meta ads for local restaurants and gyms. $400/month, no contract, most clients see more bookings within 30 days."
+                    value={offer}
+                    onChange={(e) => setOffer(e.target.value)}
+                    aria-describedby="offer-hint"
+                  />
+                  <div className="offer-footer">
+                    <span id="offer-hint" className="hint">
+                      Optional. Include your price. Saved on this device.
+                    </span>
+                    <button
+                      type="button"
+                      className="link-button"
+                      onClick={() => {
+                        store(OFFER_KEY, offer)
+                        setEditingOffer(false)
+                      }}
+                    >
+                      Save
+                    </button>
+                  </div>
+                </>
+              ) : (
+                <div className="offer-saved">
+                  <p>{offer || 'Not set. The owner will learn what you sell from your pitch.'}</p>
+                  <button type="button" className="link-button" onClick={() => setEditingOffer(true)}>
+                    Edit
+                  </button>
+                </div>
+              )}
+            </section>
+
+            <fieldset className="setup-section level-picker">
+              <legend className="setup-heading">Difficulty</legend>
+              {LEVELS.map((l) => (
+                <label key={l.id} className={`level-option ${level === l.id ? 'selected' : ''}`}>
+                  <input
+                    type="radio"
+                    name="level"
+                    value={l.id}
+                    checked={level === l.id}
+                    onChange={() => {
+                      setLevel(l.id)
+                      store(LEVEL_KEY, l.id)
+                    }}
+                  />
+                  <span className="level-label">{l.label}</span>
+                  <span className="level-blurb">{l.blurb}</span>
+                </label>
+              ))}
+            </fieldset>
+
             {/* Hidden when the link supplied the code, unless that code was rejected. */}
             {(!linkCode || /access code/i.test(error)) && (
               <input
@@ -186,7 +287,9 @@ function App() {
             <p className="calling">
               On a call with <strong>{persona?.name}</strong>, owner of {persona?.business}
             </p>
-            <p className="persona-detail">{persona?.detail}</p>
+            <p className="persona-detail">
+              {persona?.detail} · <span className={`level-tag ${callLevel}`}>{callLevel}</span>
+            </p>
             <Transcript lines={lines} persona={persona} />
             <div className="call-bar">
               {retryAudio && (
@@ -204,7 +307,9 @@ function App() {
 
         {phase === 'ended' && (
           <>
-            <p className="calling">Call with {persona?.name} ended</p>
+            <p className="calling">
+              Call with {persona?.name} ended · <span className={`level-tag ${callLevel}`}>{callLevel}</span>
+            </p>
             {reportStatus === 'loading' && <GradingProgress />}
             {reportStatus === 'error' && (
               <div className="report-error">
