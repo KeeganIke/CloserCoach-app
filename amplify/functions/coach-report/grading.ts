@@ -201,7 +201,8 @@ export function quoteInTranscript(quote: string, lines: Line[]) {
   })
 }
 
-// Blanks out any quote that isn't in the transcript. Ratings stay as they are.
+// Blanks out any quote that isn't in the transcript and drops objections the
+// owner never actually said. Ratings stay as they are.
 export function verifyQuotes(output: ModelOutput, lines: Line[]): ModelOutput {
   const keep = (q: string) => (quoteInTranscript(q, lines) ? q : '')
   return {
@@ -211,6 +212,39 @@ export function verifyQuotes(output: ModelOutput, lines: Line[]): ModelOutput {
     qualification: { ...output.qualification, quote: keep(output.qualification.quote) },
     whatWorked: output.whatWorked.map((p) => ({ ...p, quote: keep(p.quote) })),
     whatFellFlat: output.whatFellFlat.map((p) => ({ ...p, quote: keep(p.quote) })),
+    objections: output.objections
+      .filter((o) => quoteInTranscript(o.objection, lines))
+      .map((o) => ({ ...o, yourResponse: keep(o.yourResponse) })),
+  }
+}
+
+// Shows each quote once. Strengths, missed opportunities and objection responses
+// keep theirs; a category, outcome or qualification quote that repeats one of
+// them (or an earlier one) is blanked.
+export function dropRepeatedQuotes(output: ModelOutput): ModelOutput {
+  const seen: string[] = []
+  const repeats = (q: string) => {
+    const n = normalizeText(q)
+    return seen.some((s) => s.includes(n) || n.includes(s))
+  }
+  const note = (q: string) => {
+    if (normalizeText(q)) seen.push(normalizeText(q))
+  }
+  const once = (q: string) => {
+    if (!normalizeText(q) || repeats(q)) return ''
+    note(q)
+    return q
+  }
+  const whatWorked = output.whatWorked.map((p) => ({ ...p, quote: once(p.quote) }))
+  const whatFellFlat = output.whatFellFlat.map((p) => ({ ...p, quote: once(p.quote) }))
+  output.objections.forEach((o) => note(o.yourResponse))
+  return {
+    ...output,
+    whatWorked,
+    whatFellFlat,
+    categories: output.categories.map((c) => ({ ...c, evidence: once(c.evidence) })),
+    outcome: { ...output.outcome, quote: once(output.outcome.quote) },
+    qualification: { ...output.qualification, quote: once(output.qualification.quote) },
   }
 }
 
@@ -223,7 +257,7 @@ export function buildReport(raw: unknown, lines: Line[]): GradeResult {
   const checked = validateModelOutput(raw)
   if (!checked.ok) return { ok: false, reason: 'invalid', error: checked.error }
 
-  const output = verifyQuotes(checked.value, lines)
+  const output = dropRepeatedQuotes(verifyQuotes(checked.value, lines))
   const { categories, overallScore } = scoreCategories(output.categories)
   if (overallScore === null) return { ok: false, reason: 'too_short', error: 'every category was N/A' }
 

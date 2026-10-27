@@ -149,9 +149,11 @@ export default function Report({ report }) {
                   <p className="objection-quote">“{o.objection}”</p>
                   <span className={`tag ${verdict.tone}`}>{verdict.label}</span>
                 </div>
-                <p>
-                  <strong>You said:</strong> {o.yourResponse.replace(/^you (initially )?said:?\s*/i, '')}
-                </p>
+                {o.yourResponse && (
+                  <p>
+                    <strong>You said:</strong> {o.yourResponse.replace(/^you (initially )?said:?\s*/i, '')}
+                  </p>
+                )}
                 <p className="muted">{o.why}</p>
                 {o.verdict !== 'worked' && o.betterLine && (
                   <p className="better-line">

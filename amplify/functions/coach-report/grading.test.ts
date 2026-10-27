@@ -2,6 +2,7 @@ import { test } from 'node:test'
 import assert from 'node:assert/strict'
 import {
   buildReport,
+  dropRepeatedQuotes,
   CATEGORIES,
   performanceGrade,
   RUBRIC_VERSION,
@@ -244,4 +245,60 @@ test('extra items are trimmed and a "worked" objection has no better line', () =
   assert.equal(report.whatWorked.length, 2)
   assert.equal(report.whatFellFlat.length, 3)
   assert.equal(report.objections[0].betterLine, '')
+})
+
+test('objections the owner never said are dropped', () => {
+  const raw = modelOutput()
+  raw.objections.push({
+    objection: 'We already have a guy who does our website.',
+    yourResponse: 'Made up response.',
+    verdict: 'fell_flat',
+    why: 'x',
+    betterLine: 'y',
+  })
+  const report = grade(raw)
+  assert.equal(report.objections.length, 1)
+  assert.equal(report.objections[0].objection, 'Just send me an email.')
+  assert.equal(report.objections[0].yourResponse, 'What would you want to see in it?')
+})
+
+test('an objection response that is not in the transcript is blanked', () => {
+  const raw = modelOutput()
+  raw.objections[0].yourResponse = 'Sure, I will send it right over.'
+  assert.equal(grade(raw).objections[0].yourResponse, '')
+})
+
+test('each quote is shown only once', () => {
+  const checked = validateModelOutput({
+    ...modelOutput(),
+    whatWorked: [{ point: 'Permission.', quote: 'Do you have thirty seconds?' }],
+    whatFellFlat: [{ point: 'Email.', quote: 'what would you want to see in it' }],
+    outcome: { status: 'no_meeting', quote: "Prices. I've got to go.", rationale: 'x' },
+  })
+  assert.ok(checked.ok)
+  const out = dropRepeatedQuotes(checked.value)
+  // Strengths and missed opportunities keep their quotes.
+  assert.equal(out.whatWorked[0].quote, 'Do you have thirty seconds?')
+  assert.equal(out.whatFellFlat[0].quote, 'what would you want to see in it')
+  // Every category used the strength's quote, so all are blanked.
+  assert.ok(out.categories.every((c) => c.evidence === ''))
+  // A new quote survives.
+  assert.equal(out.outcome.quote, "Prices. I've got to go.")
+  // The objection response is not blanked, but later repeats of it are.
+  assert.equal(out.objections[0].yourResponse, 'What would you want to see in it?')
+})
+
+test('a category quote that repeats an objection response is blanked; distinct ones stay', () => {
+  const raw = modelOutput()
+  raw.whatWorked = []
+  raw.whatFellFlat = []
+  raw.categories[0].evidence = "Hi Dave, it's Sam with Local Lift."
+  raw.categories[1].evidence = 'What would you want to see in it?'
+  raw.categories[2].evidence = 'How are most new customers finding your shop right now?'
+  raw.categories[3].evidence = 'How are most new customers finding your shop right now?'
+  const report = grade(raw)
+  assert.equal(report.categories[0].evidence, "Hi Dave, it's Sam with Local Lift.")
+  assert.equal(report.categories[1].evidence, '')
+  assert.equal(report.categories[2].evidence, 'How are most new customers finding your shop right now?')
+  assert.equal(report.categories[3].evidence, '')
 })

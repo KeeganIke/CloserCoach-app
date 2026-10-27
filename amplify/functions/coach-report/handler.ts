@@ -64,7 +64,7 @@ value (Value Proposition)
 Any misleading claim caps this category at "1".
 
 objection_handling (Objection Handling)
-An objection is real pushback: "not interested", "we already have someone", "too expensive", "I'm busy", "no meeting", "how did you get this number". Brush-offs like "send me an email", "send me some info" or "call me later" ARE objections and must be evaluated if raised. Interest with a condition ("maybe, if it actually works") is not an objection. Merge repeats of the same objection. Weight the most important objection most heavily.
+An objection is real pushback: "not interested", "we already have someone", "too expensive", "I'm busy", "no meeting", "how did you get this number". Brush-offs like "send me an email", "send me some info" or "call me later" ARE objections and must be evaluated if raised. Interest with a condition ("maybe, if it actually works") is not an objection, and neither are the owner's instructions or preferences ("keep it short", "don't put a meeting request in the email"). Merge repeats of the same objection. Weight the most important objection most heavily.
 "Send me an email" usually means "get off my phone", and simply accepting it rarely leads anywhere. Strong handling acknowledges it, then makes one smooth attempt to make it real: ask what they'd want to see in the email, attach a specific follow-up time ("I'll send it now; can we put ten minutes on Thursday to go over it?"), or gently ask whether it's timing or fit. One well-made attempt is good selling; pushing again after the owner has clearly said no more than once is not.
 - 4: Acknowledges the objection, clarifies the real concern, responds relevantly. For brush-offs, makes one smooth attempt to make it real. Respects a repeated no.
 - 3: Acknowledges and responds relevantly, but doesn't clarify the real concern, or the attempt is clunky.
@@ -83,8 +83,15 @@ closing (Closing and Next Steps)
 - na: The owner firmly ended the call before the rep had a reasonable chance to propose a next step.
 Making one appropriate attempt and then respecting a clear refusal earns a "3" or "4" depending on the quality of the attempt. Do not penalize a rep for respecting a no.
 
+Refusals:
+- A refusal is the owner saying no to a specific next step the rep actually proposed (a meeting, a call, a time). A brush-off like "send me an email" or "I'm busy" is an objection to handle, not a refusal: one discovery question or one next-step ask after it is expected and good selling. The owner's instructions or preferences (what to put in an email, how long to keep it) are not refusals of anything. The rep's first ask for a meeting is never a repeat.
+- If the rep asks again after one refusal, lower closing only (at most "2"). Do not lower other categories for that same line.
+- Only aggressive pressure, or asking again after two or more refusals, caps listening, objection_handling and closing at "1".
+- The owner sometimes cuts the rep off mid-sentence. A rep line that trails off unfinished and the rep's next line that completes it are one turn, not a repeat.
+
+One moment, one category: judge each moment in the single category it belongs to most. One line must not drive low ratings in several categories (except the two-or-more-refusals rule above). Use a different moment as evidence for each category whenever possible.
+
 Hard rules:
-- Aggressive pressure or ignoring an explicit refusal caps listening and closing at "1".
 - Misleading claims cap value at "1".
 - A booked meeting does not raise any rating by itself, and a declined meeting does not lower any rating by itself.
 - Do not infer confidence, personality, tone of voice or vocal delivery from the text.
@@ -92,15 +99,15 @@ Hard rules:
 
 ## Evidence
 
-Evaluate only what the rep actually said and did. Never invent quotes, events or objections. Every quote ("evidence", "quote") must be copied word for word from a single transcript line; use an empty string when there is nothing to quote. The transcript has no timestamps; do not output any. Keep the quote (what was observed) separate from the rationale (your interpretation). The quote is shown right after the rationale, so the rationale must never restate or paraphrase it; say why it helped or hurt instead. Bad: "You asked for thirty seconds." + "Do you have thirty seconds?" Good: "Asking for a moment gave the owner an easy way in instead of a pitch." + "Do you have thirty seconds?" The same goes for strengths and missed opportunities. Every rating other than "na" needs a one-sentence rationale; for "na", say briefly why it couldn't be evaluated.
+Evaluate only what the rep actually said and did. Never invent quotes, events or objections. Every quote ("evidence", "quote", "objection", "yourResponse") must be copied word for word from a single transcript line; use an empty string when there is nothing to quote. Keep quotes short: just the key words, at most about 15 words, using "..." to skip words within the line. Never use the same quote twice anywhere in the report; pick a different moment or leave the quote empty. The transcript has no timestamps; do not output any. Keep the quote (what was observed) separate from the rationale (your interpretation). The quote is shown right after the rationale, so the rationale must never restate or paraphrase it; say why it helped or hurt instead. Bad: "You asked for thirty seconds." + "Do you have thirty seconds?" Good: "Asking for a moment gave the owner an easy way in instead of a pitch." + "Do you have thirty seconds?" The same goes for strengths and missed opportunities. Every rating other than "na" needs a one-sentence rationale; for "na", say briefly why it couldn't be evaluated.
 
 ## Outcome and qualification (separate from the ratings)
 
 Outcome:
 - meeting_booked: the owner explicitly agreed to a meeting or call at a specific day or time, and the agreement was confirmed.
-- follow_up_agreed: the owner agreed to some future contact (for example "send it over and call me next week") but no specific day and time was set.
-- no_meeting: the call ended without an agreed next step and without an explicit refusal.
-- declined: the owner explicitly refused further engagement or a proposed next step, or ended the call ("I've got to go", "not interested, bye").
+- follow_up_agreed: the owner agreed to talk again (for example "send it over and call me next week") but no specific day and time was set. Permission to send an email, by itself, is not follow_up_agreed.
+- no_meeting: the call ended without an agreed conversation and without the owner refusing a next step the rep proposed. Endings where the owner only agrees to receive an email usually belong here.
+- declined: the owner refused a next step the rep proposed, refused any further contact, or ended the call rejecting the offer outright ("not interested, bye"). Simply having to get back to work is not a decline.
 - insufficient_information: the transcript does not establish the outcome (for example it cuts off mid-conversation).
 Vague interest, an unanswered meeting request, or a request for information is never meeting_booked.
 
@@ -118,8 +125,14 @@ Give each one a supporting quote and a one-sentence rationale.
 - whatFellFlat: up to three missed opportunities, most important first, each with a supporting quote.
 - focusNextCall: the single most important thing to work on next call.
 - suggestedLine: the exact words the rep could have said at the most important missed opportunity: natural, spoken, one or two sentences, fitted to this owner and business.
-- objections: at most the 3 most important. For "yourResponse", give only the rep's own words in quotes (or a close paraphrase), without any lead-in like "You said". For "mixed" or "fell_flat", "betterLine" is the exact words the rep could have said instead; for "worked", "betterLine" must be an empty string.
-- summary: one or two sentences on the call overall.`
+- objections: at most the 3 most important, real pushback only. "objection" is the owner's exact words and "yourResponse" is the rep's exact words, each a short quote from one transcript line, without any lead-in like "You said". For "mixed" or "fell_flat", "betterLine" is the exact words the rep could have said instead; for "worked", "betterLine" must be an empty string.
+- summary: one or two sentences on the call overall.
+
+Rules for every suggested line (suggestedLine, betterLine) and for focusNextCall:
+- Never advise simply accepting the email and getting off the phone.
+- Use only facts about the offer that appear in the rep's offer description or in the call. Never invent prices, fees, guarantees, results or terms.
+- Never return to an angle the owner already rejected on the call.
+- Never repeat another suggested line in the report; the suggestedLine must address a different moment than any objection's betterLine.`
 
 const quoted = (description: string) => ({ type: 'string', description })
 const evidenceSchema = (statuses: readonly string[]) => ({
@@ -179,8 +192,8 @@ const SCHEMA = {
         additionalProperties: false,
         required: ['objection', 'yourResponse', 'verdict', 'why', 'betterLine'],
         properties: {
-          objection: quoted("The owner's objection, quoted or closely paraphrased"),
-          yourResponse: quoted('What the rep said back, quoted or closely paraphrased'),
+          objection: quoted("The owner's exact words from one transcript line"),
+          yourResponse: quoted("The rep's exact words from one transcript line, or empty string"),
           verdict: { type: 'string', enum: VERDICTS },
           why: quoted('One or two sentences'),
           betterLine: quoted('Exact words the rep could say instead; empty string when verdict is "worked"'),
