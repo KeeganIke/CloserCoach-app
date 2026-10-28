@@ -105,6 +105,7 @@ function App() {
   const [error, setError] = useState('')
   const [persona, setPersona] = useState(null)
   const [hidden, setHidden] = useState(null) // sealed owner secret for the report's reveal
+  const [savedReveal, setSavedReveal] = useState(null) // reveal pasted on the ?regrade page
   const [lines, setLines] = useState([])
   const [secondsLeft, setSecondsLeft] = useState(MAX_CALL_SECONDS)
   const [retryAudio, setRetryAudio] = useState(null) // set when the browser blocks the owner's audio
@@ -116,21 +117,20 @@ function App() {
   const callRef = useRef(null)
   const stickToBottom = useRef(true)
 
-  const gradeCall = async (callLines, callPersona = persona, callHidden = hidden) => {
+  const gradeCall = async (callLines, callPersona = persona, callHidden = hidden, reveal = savedReveal) => {
     setReport(null)
     setReportError('')
     setReportStatus('loading')
     try {
-      setReport(
-        await fetchReport({
-          reportUrl: REPORT_URL,
-          accessCode,
-          persona: callPersona,
-          offer,
-          hidden: callHidden,
-          lines: realLines(callLines),
-        }),
-      )
+      const graded = await fetchReport({
+        reportUrl: REPORT_URL,
+        accessCode,
+        persona: callPersona,
+        offer,
+        hidden: callHidden,
+        lines: realLines(callLines),
+      })
+      setReport(reveal ? { ...graded, hidden: reveal.hidden, hiddenCoaching: reveal.coaching } : graded)
       setReportStatus('done')
     } catch (err) {
       setReportError(err.message)
@@ -138,13 +138,14 @@ function App() {
     }
   }
 
-  const gradeSaved = (savedPersona, savedLines) => {
+  const gradeSaved = (savedPersona, savedLines, reveal) => {
     store(CODE_KEY, accessCode)
     setPersona(savedPersona)
     setHidden(null)
+    setSavedReveal(reveal)
     setLines(savedLines)
     setPhase('ended')
-    gradeCall(savedLines, savedPersona, null)
+    gradeCall(savedLines, savedPersona, null, reveal)
   }
 
   const endCall = () => {
@@ -158,6 +159,7 @@ function App() {
 
   const handleStart = async (e) => {
     e.preventDefault()
+    setSavedReveal(null)
     setError('')
     setLines([])
     setRetryAudio(null)

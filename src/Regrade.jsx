@@ -1,6 +1,7 @@
 // Grade a saved transcript with the current grader (open the app with ?regrade).
 // Used to re-run a past call after the rubric changes, without making a new call.
-// The owner's sealed secret only exists during a live call, so there's no reveal.
+// The owner's sealed secret only exists during a live call, so the reveal can be
+// pasted from the original report; it's shown as-is and never sent to the grader.
 
 import { useState } from 'react'
 
@@ -48,9 +49,38 @@ export function parseTranscript(text, ownerName) {
   return lines.filter((l) => l.text && l.text !== '…')
 }
 
+// Reads the "What X wasn't telling you" section copied from an old report.
+export function parseReveal(text) {
+  const rows = text
+    .split('\n')
+    .map((r) => r.replace(/^[*•\-–]\s*/, '').trim())
+    .filter(Boolean)
+  const hidden = { situation: 'unaware_need', problems: [], providerWeakness: '', concerns: [], personality: [] }
+  const coaching = []
+  let list = null
+  for (const row of rows) {
+    if (/wasn.t telling you$/i.test(row)) continue
+    if (/^real problems$/i.test(row)) list = hidden.problems
+    else if (/^concerns they had ready$/i.test(row)) list = hidden.concerns
+    else if (/^personality:/i.test(row)) {
+      hidden.personality = row.replace(/^personality:\s*/i, '').split(/,\s*/).filter(Boolean)
+      list = coaching
+    } else if (/^already had someone for this, but it /i.test(row)) {
+      hidden.situation = 'has_provider'
+      hidden.providerWeakness = row.replace(/^already had someone for this, but it /i, '').replace(/\.$/, '')
+    } else if (list) list.push(row)
+  }
+  const lower = (s) => s.charAt(0).toLowerCase() + s.slice(1)
+  hidden.problems = hidden.problems.map(lower)
+  hidden.concerns = hidden.concerns.map(lower)
+  if (!hidden.problems.length && !hidden.concerns.length) return null
+  return { hidden, coaching: coaching.join(' ') }
+}
+
 export default function Regrade({ onGrade }) {
   const [owner, setOwner] = useState(OWNERS[0].name)
   const [text, setText] = useState('')
+  const [revealText, setRevealText] = useState('')
   const [error, setError] = useState('')
 
   const submit = (e) => {
@@ -62,7 +92,7 @@ export default function Regrade({ onGrade }) {
       return
     }
     setError('')
-    onGrade(persona, lines)
+    onGrade(persona, lines, revealText.trim() ? parseReveal(revealText) : null)
   }
 
   return (
@@ -81,6 +111,13 @@ export default function Regrade({ onGrade }) {
         placeholder="Paste the transcript here"
         value={text}
         onChange={(e) => setText(e.target.value)}
+      />
+      <textarea
+        className="offer-input"
+        rows={5}
+        placeholder={`Optional: paste "What ${owner} wasn't telling you" from the original report`}
+        value={revealText}
+        onChange={(e) => setRevealText(e.target.value)}
       />
       <button className="button primary" type="button" onClick={submit} disabled={!text.trim()}>
         Grade
