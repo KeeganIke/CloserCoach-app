@@ -1,9 +1,9 @@
 const GRADE_TONES = {
-  Excellent: 'good',
+  Elite: 'good',
   Strong: 'good',
-  Passing: 'good',
+  Developing: 'mixed',
   'Needs Improvement': 'mixed',
-  'Significant Improvement Needed': 'bad',
+  Poor: 'bad',
 }
 
 const OUTCOMES = {
@@ -107,12 +107,10 @@ export default function Report({ report }) {
       {categories.length > 0 && (
         <section className="report-section">
           <h3>Scorecard</h3>
-          {skipped > 0 && (
-            <p className="muted">
-              {skipped === 1 ? 'One category' : `${skipped} categories`} marked N/A {skipped === 1 ? 'is' : 'are'} left
-              out of your score.
-            </p>
-          )}
+          <p className="muted">
+            Scored on {categories.length - skipped} of {categories.length} categories
+            {skipped > 0 && '. Categories marked N/A are left out of your score'}.
+          </p>
           {categories.map((c) => {
             const na = c.rating === 'na'
             return (

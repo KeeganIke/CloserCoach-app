@@ -2,30 +2,45 @@
 // The model only rates each category; the score, points and grade are computed
 // here so the numbers always add up. No network calls, so it can be unit tested.
 
-export const RUBRIC_VERSION = 1
+export const RUBRIC_VERSION = 2
 
 // Ids are stable; display names and weights can change (bump RUBRIC_VERSION).
+// The model rates every category except delivery, which code scores from filler words.
 export const CATEGORIES = [
-  { id: 'opening', name: 'Opening and Permission', weight: 10 },
-  { id: 'personalization', name: 'Personalization and Relevance', weight: 10 },
-  { id: 'discovery', name: 'Discovery and Pain Identification', weight: 20 },
-  { id: 'listening', name: 'Active Listening and Adaptability', weight: 15 },
-  { id: 'value', name: 'Value Proposition', weight: 15 },
-  { id: 'objection_handling', name: 'Objection Handling', weight: 15 },
-  { id: 'closing', name: 'Closing and Next Steps', weight: 15 },
+  { id: 'opening', name: 'Opening and Attention', weight: 15 },
+  { id: 'discovery', name: 'Pain Discovery', weight: 20 },
+  { id: 'solution_fit', name: 'Solution Fit', weight: 15 },
+  { id: 'listening', name: 'Listening and Adaptability', weight: 10 },
+  { id: 'objection_handling', name: 'Objection Handling', weight: 20 },
+  { id: 'closing', name: 'Closing and Next Step', weight: 15 },
+  { id: 'delivery', name: 'Delivery', weight: 5 },
 ] as const
 
 export const CATEGORY_IDS = CATEGORIES.map((c) => c.id)
+export const AI_CATEGORIES = CATEGORIES.filter((c) => c.id !== 'delivery')
+export const AI_CATEGORY_IDS = AI_CATEGORIES.map((c) => c.id)
 export const RATINGS = ['4', '3', '2', '1', '0', 'na'] as const
 
-// Initial benchmarks, highest first. A score gets the first band it reaches.
+// Initial coaching benchmarks, highest first. A score gets the first band it reaches.
 export const SCORE_BANDS = [
-  { min: 90, label: 'Excellent' },
-  { min: 85, label: 'Strong' },
-  { min: 75, label: 'Passing' },
+  { min: 90, label: 'Elite' },
+  { min: 80, label: 'Strong' },
+  { min: 70, label: 'Developing' },
   { min: 60, label: 'Needs Improvement' },
-  { min: 0, label: 'Significant Improvement Needed' },
+  { min: 0, label: 'Poor' },
 ] as const
+
+// Delivery: filler words per 100 rep words. A rate below each limit earns that rating.
+const FILLER_LIMITS = [
+  { below: 2, rating: '4' },
+  { below: 4, rating: '3' },
+  { below: 6, rating: '2' },
+  { below: 8, rating: '1' },
+] as const
+const MIN_DELIVERY_WORDS = 20
+// "um", "uh" and their stretched spellings, plus "like" and "you know" set off as fillers
+// ("is there any, like, major issues", "could, you know, make it").
+const FILLER_PATTERNS = [/\b(?:u+m+|u+h+|e+r+m+)\b/gi, /\blike,/gi, /,\s*you know\s*,/gi]
 
 export const OUTCOMES = ['meeting_booked', 'follow_up_agreed', 'no_meeting', 'declined', 'insufficient_information'] as const
 export const QUALIFICATIONS = ['qualified', 'not_qualified', 'insufficient_information'] as const
@@ -37,6 +52,7 @@ const MAX_MISSED = 3
 const MAX_OBJECTIONS = 3
 
 export type CategoryId = (typeof CATEGORIES)[number]['id']
+export type AiCategoryId = Exclude<CategoryId, 'delivery'>
 export type Rating = (typeof RATINGS)[number]
 export type Line = { role: 'user' | 'assistant'; text: string }
 type Evidence = { status: string; quote: string; rationale: string }
@@ -46,7 +62,7 @@ type Objection = { objection: string; yourResponse: string; verdict: string; why
 // What the model returns (after validation).
 export type ModelOutput = {
   summary: string
-  categories: { id: CategoryId; rating: Rating; rationale: string; evidence: string }[]
+  categories: { id: AiCategoryId; rating: Rating; rationale: string; evidence: string }[]
   outcome: Evidence
   qualification: Evidence
   whatWorked: Point[]
@@ -76,6 +92,26 @@ export type Report = Omit<ModelOutput, 'categories'> & {
 
 export function countRepTurns(lines: Line[]) {
   return lines.filter((l) => l?.role === 'user' && typeof l.text === 'string' && l.text.trim()).length
+}
+
+// Scores the delivery category from the rep's own lines.
+export function scoreDelivery(lines: Line[]) {
+  const text = lines
+    .filter((l) => l?.role === 'user' && typeof l.text === 'string')
+    .map((l) => l.text)
+    .join(' ')
+  const words = text.split(/\s+/).filter((w) => /[a-z0-9]/i.test(w)).length
+  const found = FILLER_PATTERNS.flatMap((re) => text.match(re) || []).map((f) => f.replace(/[,\s]+/g, ' ').trim().toLowerCase())
+  const fillers = found.length
+  if (words < MIN_DELIVERY_WORDS) {
+    return { rating: 'na' as Rating, rationale: 'Too few words to judge filler use.', fillers, words }
+  }
+  const rate = (fillers / words) * 100
+  const rating: Rating = FILLER_LIMITS.find((l) => rate < l.below)?.rating ?? '0'
+  const rationale = fillers
+    ? `${fillers} filler word${fillers === 1 ? '' : 's'} (${[...new Set(found)].map((f) => `"${f}"`).join(', ')}) in ${words} words, about ${Math.round(rate * 10) / 10} per 100.`
+    : `No filler words in ${words} words.`
+  return { rating, rationale, fillers, words }
 }
 
 export function performanceGrade(score: number) {
@@ -129,10 +165,10 @@ export function validateModelOutput(raw: unknown): { ok: true; value: ModelOutpu
     }
 
     if (!Array.isArray(raw.categories)) throw new Error('missing categories')
-    if (raw.categories.length !== CATEGORIES.length) throw new Error('wrong number of categories')
+    if (raw.categories.length !== AI_CATEGORIES.length) throw new Error('wrong number of categories')
     const seen = new Set<string>()
     const categories = raw.categories.map((c) => {
-      if (!isObj(c) || !oneOf(CATEGORY_IDS, c.id)) throw new Error('unknown category')
+      if (!isObj(c) || !oneOf(AI_CATEGORY_IDS, c.id)) throw new Error('unknown category')
       if (seen.has(c.id)) throw new Error(`duplicate category ${c.id}`)
       seen.add(c.id)
       if (!oneOf(RATINGS, c.rating)) throw new Error(`invalid rating for ${c.id}`)
@@ -258,7 +294,13 @@ export function buildReport(raw: unknown, lines: Line[]): GradeResult {
   if (!checked.ok) return { ok: false, reason: 'invalid', error: checked.error }
 
   const output = dropRepeatedQuotes(verifyQuotes(checked.value, lines))
-  const { categories, overallScore } = scoreCategories(output.categories)
+  // Delivery alone can't make a score: if the model could judge nothing, the call was too short.
+  if (output.categories.every((c) => c.rating === 'na')) {
+    return { ok: false, reason: 'too_short', error: 'every category was N/A' }
+  }
+  const delivery = scoreDelivery(lines)
+  const rated = [...output.categories, { id: 'delivery' as const, rating: delivery.rating, rationale: delivery.rationale, evidence: '' }]
+  const { categories, overallScore } = scoreCategories(rated)
   if (overallScore === null) return { ok: false, reason: 'too_short', error: 'every category was N/A' }
 
   return {
@@ -269,8 +311,8 @@ export function buildReport(raw: unknown, lines: Line[]): GradeResult {
       performanceGrade: performanceGrade(overallScore),
       ...output,
       categories: categories.map((c) => {
-        const rated = output.categories.find((r) => r.id === c.id)!
-        return { ...c, rationale: rated.rationale, evidence: rated.evidence }
+        const r = rated.find((x) => x.id === c.id)!
+        return { ...c, rationale: r.rationale, evidence: r.evidence }
       }),
     },
   }

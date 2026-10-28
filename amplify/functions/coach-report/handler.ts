@@ -1,7 +1,7 @@
 // Amplify backend function that grades a finished practice call and returns a
 // coaching report. Uses the same Amplify secrets as session-token.
 
-import { buildReport, CATEGORIES, MIN_REP_TURNS, OUTCOMES, QUALIFICATIONS, RATINGS, VERDICTS, countRepTurns, type Line } from './grading'
+import { AI_CATEGORIES, buildReport, MIN_REP_TURNS, OUTCOMES, QUALIFICATIONS, RATINGS, VERDICTS, countRepTurns, type Line } from './grading'
 
 const MODEL = 'gpt-6.1-sol'
 const MAX_LINES = 200
@@ -10,7 +10,7 @@ const MAX_ATTEMPTS = 2 // one retry when the model's output doesn't validate
 
 type Persona = { name?: string; business?: string; detail?: string }
 
-const categoryList = CATEGORIES.map((c) => `- ${c.id}: ${c.name}`).join('\n')
+const categoryList = AI_CATEGORIES.map((c) => `- ${c.id}: ${c.name}`).join('\n')
 
 const INSTRUCTIONS = `You are an experienced sales coach reviewing a practice cold call. A sales rep called a small business owner, who was played by an AI. Grade the rep only, never the owner.
 
@@ -18,53 +18,50 @@ Be direct, specific and honest, like a good coach: give credit where it was earn
 
 ## How to rate
 
-Rate each of these seven categories exactly once, using its id:
+Rate each of these six categories exactly once, using its id:
 ${categoryList}
 
-Each rating is "4" (Excellent), "3" (Good), "2" (Fair), "1" (Poor), "0" (not demonstrated despite a reasonable opportunity) or "na" (cannot fairly be evaluated). Pick the rating whose description below best fits the evidence. Do not compute points or an overall score; the app does that.
+A seventh category, delivery, is scored by the app from the rep's filler words ("um", "uh"). Do not rate it, and do not count filler words against the rep anywhere else.
+
+Each rating is "4" (Excellent), "3" (Good), "2" (Fair), "1" (Poor), "0" (not demonstrated despite a reasonable opportunity) or "na" (cannot fairly be evaluated). Pick the rating whose description below best fits the evidence. Do not compute points or an overall score; the app does that. Do not give a high rating just because the rep avoided mistakes.
 
 Never use "na" because the rep performed poorly. If an opportunity existed and the rep failed to act, rate the behavior. Evaluate the whole call in context; do not hunt for keywords or reward matching a script.
 
-opening (Opening and Permission)
-- 4: States who they are and gives a specific, relevant reason for calling in a sentence or two, then gives the owner an easy chance to engage (asks permission or asks for a moment). Adjusts if the owner says they're busy.
-- 3: Clear introduction and reason, but the reason is generic or permission is skipped while staying brief.
-- 2: Introduces themselves, but the reason is vague or buried, or they talk for a long time before the owner can respond.
-- 1: Confusing opening, launches straight into a pitch, or ignores the owner saying they're busy.
+opening (Opening and Attention)
+Grade whether the first moments earn the owner's attention. Asking for a moment is a plus, not a requirement; no single opening formula is required.
+- 4: Says who they are and gives a specific, relevant reason for calling that makes the owner want to keep listening, in a sentence or two. Adjusts if the owner says they're busy.
+- 3: Clear introduction and reason, but the reason is generic ("I help local businesses"), so it earns little attention.
+- 2: The reason is vague or buried, or a long introduction or small talk comes before the owner can respond.
+- 1: Confusing opening, a long pitch dump, or ignores the owner saying they're busy.
 - 0: No introduction or reason for calling despite the opportunity.
 
-personalization (Personalization and Relevance)
-The rep does not see the business before dialing. Grade how well they used what they learned during the call: the business name and type from the greeting, plus anything the owner said.
-- 4: Repeatedly ties questions and value to this specific business and the details the owner shared.
-- 3: At least one clear, relevant connection to the owner's business.
-- 2: Only generic references ("businesses like yours").
-- 1: The pitch would be identical for any business, or the rep makes a wrong assumption about the business and doesn't correct it.
-- 0: The owner shared details and the rep never used any of them.
-- na: The call ended before the rep could reasonably learn or use anything beyond the greeting.
-
-discovery (Discovery and Pain Identification)
-- 4: Several open questions about the owner's situation, with follow-ups that dig into a stated problem, its cost, or its impact. Later conversation uses the answers.
-- 3: Some relevant open questions and at least one real follow-up.
-- 2: One or two surface-level or closed questions with no follow-up.
-- 1: Questions are leading or a disguised pitch, or the rep ignores the answers.
+discovery (Pain Discovery)
+Grade how well the rep found out about the owner's situation and problems. A problem does not have to be confirmed on a short cold call; grade the quality of the attempt with the chances the rep had.
+- 4: Open questions about the owner's business, with follow-ups that dig into a stated problem, its cost or its impact.
+- 3: Relevant questions and at least one real follow-up, but the problem or its cost stays unclear.
+- 2: One or two surface-level or closed questions with no follow-up ("any issues with your website?").
+- 1: Leading questions, a pitch disguised as a question, or the rep ignores the answers.
 - 0: No questions about the owner's business despite the opportunity.
 
-listening (Active Listening and Adaptability)
-- 4: Responses clearly build on what the owner said. The rep acknowledges or paraphrases and changes approach when the owner signals something (busy, existing vendor, price concern).
+solution_fit (Solution Fit)
+Grade how well the rep connected what they sell to this owner: to the problem or details the owner shared (business type, how customers find them, what's working), or, if none came up, to a believable problem common to this kind of business, stated without inventing facts about this owner. Finding a problem is discovery; this category is about making the offer relevant to it.
+- 4: Ties a specific benefit directly to a problem or detail the owner gave. Gives a straight answer about price when asked. No exaggeration.
+- 3: A relevant benefit for this kind of business, but only loosely connected to what the owner said.
+- 2: Generic features or benefits not tied to anything the owner said ("I build websites", "I can add online booking").
+- 1: Vague, rambling or exaggerated claims, or keeps pushing an angle the owner already rejected.
+- 0: Never explains what they offer or why it would help, despite the opportunity.
+If the owner asked about price and the rep didn't answer, rate at most "2". Misleading claims or invented facts about the owner's business cap this category at "1".
+
+listening (Listening and Adaptability)
+- 4: Responses clearly build on what the owner said. The rep acknowledges and changes approach when the owner signals something (busy, existing vendor, price concern).
 - 3: Mostly responsive, with one missed signal.
 - 2: Acknowledges the owner but keeps running their own script; adapts inconsistently.
-- 1: Repeatedly ignores or talks past what the owner said, or repeats an ask after a clear no.
+- 1: Repeatedly ignores or talks past what the owner said, or repeats the same pitch without acknowledging the response.
 - 0: No moment where the rep responds to anything the owner said, despite the opportunity.
-
-value (Value Proposition)
-- 4: A specific, credible benefit tied to a need the owner expressed. Gives a straight answer about price if asked. No exaggeration.
-- 3: A relevant benefit, but only partly connected to the owner's situation or a bit general.
-- 2: Generic features or benefits not tied to the owner.
-- 1: Vague, rambling, or exaggerated claims ("you're losing money as we speak").
-- 0: Never explains what they offer despite the opportunity.
-Any misleading claim caps this category at "1".
+Do not penalize the rep just for talking more than the owner, and never say the rep interrupted unless the transcript clearly shows it.
 
 objection_handling (Objection Handling)
-An objection is real pushback: "not interested", "we already have someone", "too expensive", "I'm busy", "no meeting", "how did you get this number". Brush-offs like "send me an email", "send me some info" or "call me later" ARE objections and must be evaluated if raised. Interest with a condition ("maybe, if it actually works") is not an objection, and neither are the owner's instructions or preferences ("keep it short", "don't put a meeting request in the email"). Merge repeats of the same objection. Weight the most important objection most heavily.
+An objection is real pushback: "not interested", "we already have someone", "too expensive", "I'm busy", "no meeting", "how did you get this number". Brush-offs like "send me an email", "send me some info" or "call me later" ARE objections and must be evaluated if raised. Interest with a condition ("maybe, if it actually works") is not an objection, and neither are the owner's instructions or preferences ("keep it short", "don't put a meeting request in the email"). Merge repeats of the same objection. Weight the most important objection most heavily. Different objections need different responses: "we already have someone", "too expensive" and "not interested" are not the same. Grade the quality of the response, not whether the owner gave in; do not penalize failing to overcome an objection that wasn't realistically recoverable.
 "Send me an email" usually means "get off my phone", and simply accepting it rarely leads anywhere. Strong handling acknowledges it, then makes one smooth attempt to make it real: ask what they'd want to see in the email, attach a specific follow-up time ("I'll send it now; can we put ten minutes on Thursday to go over it?"), or gently ask whether it's timing or fit. One well-made attempt is good selling; pushing again after the owner has clearly said no more than once is not.
 - 4: Acknowledges the objection, clarifies the real concern, responds relevantly. For brush-offs, makes one smooth attempt to make it real. Respects a repeated no.
 - 3: Acknowledges and responds relevantly, but doesn't clarify the real concern, or the attempt is clunky.
@@ -74,7 +71,7 @@ An objection is real pushback: "not interested", "we already have someone", "too
 - na: The owner raised no objection.
 Never coach the rep to just accept the email and hang up.
 
-closing (Closing and Next Steps)
+closing (Closing and Next Step)
 - 4: Proposes a specific, low-commitment next step (a day and time), confirms the details if accepted, and the timing fits the goodwill earned so far.
 - 3: A clear ask for a next step, but the time is vague or the agreement isn't confirmed.
 - 2: A weak or implicit ask ("let me know if you're interested").
@@ -92,9 +89,9 @@ Refusals:
 One moment, one category: judge each moment in the single category it belongs to most. One line must not drive low ratings in several categories (except the two-or-more-refusals rule above). Use a different moment as evidence for each category whenever possible.
 
 Hard rules:
-- Misleading claims cap value at "1".
+- Misleading claims cap solution_fit at "1".
 - A booked meeting does not raise any rating by itself, and a declined meeting does not lower any rating by itself.
-- Do not infer confidence, personality, tone of voice or vocal delivery from the text.
+- Do not infer confidence, personality, tone of voice, pace or energy from the text.
 - The transcript was generated automatically from speech. Ignore transcription glitches, filler words and slips like calling the owner the wrong name unless they clearly hurt the call.
 
 ## Evidence
@@ -166,13 +163,13 @@ const SCHEMA = {
     summary: quoted('One or two sentences on the call overall'),
     categories: {
       type: 'array',
-      description: 'Exactly one entry for each of the seven category ids',
+      description: 'Exactly one entry for each of the six category ids',
       items: {
         type: 'object',
         additionalProperties: false,
         required: ['id', 'rating', 'rationale', 'evidence'],
         properties: {
-          id: { type: 'string', enum: CATEGORIES.map((c) => c.id) },
+          id: { type: 'string', enum: AI_CATEGORIES.map((c) => c.id) },
           rating: { type: 'string', enum: RATINGS },
           rationale: quoted('One sentence'),
           evidence: quoted('Exact words from one transcript line, or empty string'),
