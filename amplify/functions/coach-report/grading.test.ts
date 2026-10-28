@@ -2,6 +2,7 @@ import { test } from 'node:test'
 import assert from 'node:assert/strict'
 import {
   AI_CATEGORIES,
+  answerStats,
   buildReport,
   inventsTerms,
   CATEGORIES,
@@ -73,22 +74,31 @@ test('the rubric adds up to 100 points', () => {
     CATEGORIES.reduce((sum, c) => sum + c.weight, 0),
     100,
   )
-  assert.equal(AI_CATEGORIES.length, 6)
+  assert.equal(AI_CATEGORIES.length, 7)
 })
 
 test('weighted scoring and rounding', () => {
   // Points per rating: 4 = 100%, 3 = 80%, 2 = 60%, 1 = 30%, 0 = 0%.
-  // opening 4 (15), discovery 3 (16), solution_fit 2 (9), listening 3 (8),
-  // objection_handling 1 (6), closing 0 (0), delivery 1 (1.5) = 55.5, rounds up to 56
+  // opening 4 (10), discovery 3 (16), solution_fit 1 (4.5), listening 3 (8),
+  // objection_handling 2 (12), closing 0 (0), clarity 4 (7), delivery 4 (3) = 60.5, rounds up to 61
   const { categories, overallScore } = scoreCategories(
-    ratingsFor({ opening: '4', discovery: '3', solution_fit: '2', listening: '3', objection_handling: '1', closing: '0', delivery: '1' }),
+    ratingsFor({
+      opening: '4',
+      discovery: '3',
+      solution_fit: '1',
+      listening: '3',
+      objection_handling: '2',
+      closing: '0',
+      clarity: '4',
+      delivery: '4',
+    }),
   )
-  assert.equal(overallScore, 56)
+  assert.equal(overallScore, 61)
   assert.deepEqual(
     categories.map((c) => c.earnedPoints),
-    [15, 16, 9, 8, 6, 0, 1.5],
+    [10, 16, 4.5, 8, 12, 0, 7, 3],
   )
-  // All model ratings 3 plus a clean delivery 4: 95 * 80% + 5 = 81 of 100.
+  // All model ratings 3 plus clean filler words: 97 * 80% + 3 = 80.6 of 100.
   assert.equal(grade(modelOutput()).overallScore, 81)
 })
 
@@ -99,11 +109,11 @@ test('N/A is left out of both earned and possible points', () => {
   assert.equal(overallScore, 100)
   assert.equal(categories.find((c) => c.id === 'closing')!.earnedPoints, null)
 
-  // discovery 0 and closing N/A, everything else 4: 65 of 85.
+  // discovery 0, closing and clarity N/A, everything else 4: 58 of 78.
   const mixed = scoreCategories(
     ratingsFor({ opening: '4', discovery: '0', solution_fit: '4', listening: '4', objection_handling: '4', delivery: '4' }),
   )
-  assert.equal(mixed.overallScore, Math.round((65 / 85) * 100))
+  assert.equal(mixed.overallScore, Math.round((58 / 78) * 100))
 })
 
 test('all N/A produces no score, and delivery alone cannot make one', () => {
@@ -120,9 +130,9 @@ test('strong ratings with no meeting still score high', () => {
 })
 
 test('weak ratings with a booked meeting still score low', () => {
-  // 95 * 30% + 5 = 33.5
+  // 97 * 30% + 3 = 32.1
   const report = grade(modelOutput(allRatings('1'), 'meeting_booked'))
-  assert.equal(report.overallScore, 34)
+  assert.equal(report.overallScore, 32)
   assert.equal(report.performanceGrade, 'Poor')
   assert.equal(report.outcome.status, 'meeting_booked')
 })
@@ -334,7 +344,7 @@ test('delivery is scored by code and included in the report', () => {
   assert.equal(delivery.rating, '0')
   assert.equal(delivery.earnedPoints, 0)
   assert.match(delivery.rationale, /^8 filler words/)
-  assert.equal(report.overallScore, 95)
+  assert.equal(report.overallScore, 97)
 })
 
 test('score band boundaries', () => {
@@ -353,7 +363,7 @@ test('score band boundaries', () => {
 test('reports carry the fields needed for future rescoring', () => {
   const report = grade(modelOutput({ closing: 'na' }))
   assert.equal(report.rubricVersion, RUBRIC_VERSION)
-  assert.equal(report.rubricVersion, 4)
+  assert.equal(report.rubricVersion, 5)
   assert.equal(typeof report.overallScore, 'number')
   assert.equal(typeof report.performanceGrade, 'string')
   assert.deepEqual(
@@ -374,7 +384,7 @@ test('weights come from code, not from the model', () => {
   const raw = modelOutput(allRatings('4'))
   ;(raw.categories[0] as Record<string, unknown>).weight = 90
   const report = grade(raw)
-  assert.equal(report.categories[0].weight, 15)
+  assert.equal(report.categories[0].weight, 10)
   assert.equal(report.overallScore, 100)
 })
 
@@ -442,4 +452,20 @@ test('objection handling never gets its own "How to improve"', () => {
   assert.equal(oh.whatHappened, '')
   assert.equal(oh.improvement, '')
   assert.equal(oh.tryLine, '')
+})
+
+test('answer lengths count only the rep', () => {
+  assert.deepEqual(answerStats(lines), { answers: 3, average: 12, longest: 15 })
+  assert.deepEqual(answerStats([{ role: 'assistant', text: 'Hello there.' }]), { answers: 0, average: 0, longest: 0 })
+})
+
+test('clear and concise is rated by the model; filler words by code', () => {
+  assert.ok(AI_CATEGORIES.some((c) => c.id === 'clarity'))
+  assert.ok(!AI_CATEGORIES.some((c) => (c.id as string) === 'delivery'))
+  const report = grade(modelOutput({ clarity: '2' }))
+  const clarity = report.categories.find((c) => c.id === 'clarity')!
+  assert.equal(clarity.maxPoints, 7)
+  assert.equal(clarity.earnedPoints, 4.2)
+  assert.equal(clarity.improvement, 'Improve clarity.')
+  assert.equal(report.categories.find((c) => c.id === 'delivery')!.maxPoints, 3)
 })

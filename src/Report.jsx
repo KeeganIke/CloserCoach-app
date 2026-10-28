@@ -122,10 +122,52 @@ function Reveal({ hidden, coaching, name }) {
   )
 }
 
+// "How to improve" content for one scored category.
+function Advice({ c }) {
+  return (
+    <>
+      {c.whatHappened && (
+        <p>
+          <span className="improve-label">What happened</span>
+          {c.whatHappened}
+        </p>
+      )}
+      <p>
+        <span className="improve-label">{c.id === 'delivery' ? 'Filler words' : 'Next time'}</span>
+        {c.improvement}
+      </p>
+      {c.tryLine && (
+        <p className="better-line">
+          <span className="improve-label">Say</span>“{c.tryLine}”
+        </p>
+      )}
+    </>
+  )
+}
+
+// Scorecard rows. Clear and Concise (graded by the coach) and Filler Words (counted
+// by the app) are scored separately but shown together as one Delivery row.
+function scorecardRows(categories) {
+  return categories
+    .filter((c) => c.id !== 'delivery' || !categories.some((x) => x.id === 'clarity'))
+    .map((c) => {
+      const parts = c.id === 'clarity' ? [c, ...categories.filter((x) => x.id === 'delivery')] : [c]
+      const counted = parts.filter((p) => p.rating !== 'na')
+      return {
+        id: c.id,
+        name: parts.length > 1 ? 'Delivery' : c.name,
+        parts,
+        na: counted.length === 0,
+        earned: counted.reduce((sum, p) => sum + p.earnedPoints, 0),
+        max: counted.reduce((sum, p) => sum + p.maxPoints, 0),
+      }
+    })
+}
+
 export default function Report({ report, persona }) {
   const score = clamp(report.overallScore, 0, 100)
-  const categories = report.categories || []
-  const skipped = categories.filter((c) => c.rating === 'na').length
+  const rows = scorecardRows(report.categories || [])
+  const skipped = rows.filter((r) => r.na).length
 
   return (
     <div className="report">
@@ -151,51 +193,40 @@ export default function Report({ report, persona }) {
         </section>
       )}
 
-      {categories.length > 0 && (
+      {rows.length > 0 && (
         <section className="report-section">
           <h3>Scorecard</h3>
           <p className="muted">
-            Scored on {categories.length - skipped} of {categories.length} categories
+            Scored on {rows.length - skipped} of {rows.length} categories
             {skipped > 0 && '. Categories marked N/A are left out of your score'}.
           </p>
-          {categories.map((c) => {
-            const na = c.rating === 'na'
+          {rows.map((r) => {
+            const advice = r.parts.filter((p) => p.improvement)
             return (
-              <div key={c.id} className={`skill${na ? ' na' : ''}`}>
+              <div key={r.id} className={`skill${r.na ? ' na' : ''}`}>
                 <div className="skill-row">
-                  <span className="skill-name">{c.name}</span>
-                  <span className="skill-score">
-                    {na ? 'N/A' : `${points(c.earnedPoints)} / ${c.maxPoints}`}
-                  </span>
+                  <span className="skill-name">{r.name}</span>
+                  <span className="skill-score">{r.na ? 'N/A' : `${points(r.earned)} / ${r.max}`}</span>
                 </div>
-                {!na && (
-                  <div className="meter" title={RATING_LABELS[c.rating]}>
-                    <div className="meter-fill" style={{ width: `${(c.earnedPoints / c.maxPoints) * 100}%` }} />
+                {!r.na && (
+                  <div className="meter">
+                    <div className="meter-fill" style={{ width: `${(r.earned / r.max) * 100}%` }} />
                   </div>
                 )}
-                <p className="skill-note">
-                  {na ? 'Not counted. ' : `${RATING_LABELS[c.rating]}. `}
-                  {c.rationale}
-                </p>
-                {c.id === 'objection_handling' && <Objections items={report.objections} />}
-                {c.improvement && (
+                {r.parts.map((p) => (
+                  <p key={p.id} className="skill-note">
+                    {r.parts.length > 1 && <strong>{p.name}: </strong>}
+                    {p.rating === 'na' ? 'Not counted. ' : `${RATING_LABELS[p.rating]}. `}
+                    {p.rationale}
+                  </p>
+                ))}
+                {r.id === 'objection_handling' && <Objections items={report.objections} />}
+                {advice.length > 0 && (
                   <details className="improve">
                     <summary>How to improve</summary>
-                    {c.whatHappened && (
-                      <p>
-                        <span className="improve-label">What happened</span>
-                        {c.whatHappened}
-                      </p>
-                    )}
-                    <p>
-                      <span className="improve-label">Next time</span>
-                      {c.improvement}
-                    </p>
-                    {c.tryLine && (
-                      <p className="better-line">
-                        <span className="improve-label">Say</span>“{c.tryLine}”
-                      </p>
-                    )}
+                    {advice.map((p) => (
+                      <Advice key={p.id} c={p} />
+                    ))}
                   </details>
                 )}
               </div>

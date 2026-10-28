@@ -2,18 +2,20 @@
 // The model only rates each category; the score, points and grade are computed
 // here so the numbers always add up. No network calls, so it can be unit tested.
 
-export const RUBRIC_VERSION = 4
+export const RUBRIC_VERSION = 5
 
 // Ids are stable; display names and weights can change (bump RUBRIC_VERSION).
 // The model rates every category except delivery, which code scores from filler words.
+// The report shows clarity and delivery together as one "Delivery" row worth 10.
 export const CATEGORIES = [
-  { id: 'opening', name: 'Opening and Attention', weight: 15 },
+  { id: 'opening', name: 'Opening and Attention', weight: 10 },
   { id: 'discovery', name: 'Pain Discovery', weight: 20 },
   { id: 'solution_fit', name: 'Solution Fit', weight: 15 },
   { id: 'listening', name: 'Listening and Adaptability', weight: 10 },
   { id: 'objection_handling', name: 'Objection Handling', weight: 20 },
   { id: 'closing', name: 'Closing and Next Step', weight: 15 },
-  { id: 'delivery', name: 'Delivery', weight: 5 },
+  { id: 'clarity', name: 'Clear and Concise', weight: 7 },
+  { id: 'delivery', name: 'Filler Words', weight: 3 },
 ] as const
 
 export const CATEGORY_IDS = CATEGORIES.map((c) => c.id)
@@ -104,13 +106,26 @@ export function countRepTurns(lines: Line[]) {
   return lines.filter((l) => l?.role === 'user' && typeof l.text === 'string' && l.text.trim()).length
 }
 
+const wordCount = (text: string) => text.split(/\s+/).filter((w) => /[a-z0-9]/i.test(w)).length
+
+// How long the rep's answers ran, in words, so the grader judges rambling from facts.
+export function answerStats(lines: Line[]) {
+  const counts = lines.filter((l) => l?.role === 'user' && typeof l.text === 'string' && l.text.trim()).map((l) => wordCount(l.text))
+  if (!counts.length) return { answers: 0, average: 0, longest: 0 }
+  return {
+    answers: counts.length,
+    average: Math.round(counts.reduce((a, b) => a + b, 0) / counts.length),
+    longest: Math.max(...counts),
+  }
+}
+
 // Scores the delivery category from the rep's own lines.
 export function scoreDelivery(lines: Line[]) {
   const text = lines
     .filter((l) => l?.role === 'user' && typeof l.text === 'string')
     .map((l) => l.text)
     .join(' ')
-  const words = text.split(/\s+/).filter((w) => /[a-z0-9]/i.test(w)).length
+  const words = wordCount(text)
   const found = FILLER_PATTERNS.flatMap((re) => text.match(re) || []).map((f) => f.replace(/[,\s]+/g, ' ').trim().toLowerCase())
   const fillers = found.length
   if (words < MIN_DELIVERY_WORDS) {

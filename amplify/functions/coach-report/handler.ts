@@ -2,7 +2,7 @@
 // coaching report. Uses the same Amplify secrets as session-token.
 
 import { openHidden, type Hidden } from '../shared/hidden'
-import { AI_CATEGORIES, buildReport, MIN_REP_TURNS, OUTCOMES, RATINGS, VERDICTS, countRepTurns, type Line } from './grading'
+import { AI_CATEGORIES, answerStats, buildReport, MIN_REP_TURNS, OUTCOMES, RATINGS, VERDICTS, countRepTurns, type Line } from './grading'
 
 const MODEL = 'gpt-6.1-sol'
 const MAX_LINES = 200
@@ -19,10 +19,10 @@ Be direct, specific and honest, like a good coach: give credit where it was earn
 
 ## How to rate
 
-Rate each of these six categories exactly once, using its id:
+Rate each of these ${AI_CATEGORIES.length} categories exactly once, using its id:
 ${categoryList}
 
-A seventh category, delivery, is scored by the app from the rep's filler words ("um", "uh"). Do not rate it, and do not count filler words against the rep anywhere else.
+Filler words ("um", "uh") are scored separately by the app. Do not rate them, and do not count filler words against the rep anywhere else.
 
 Each rating is "4" (Excellent), "3" (Good), "2" (Fair), "1" (Poor), "0" (not demonstrated despite a reasonable opportunity) or "na" (cannot fairly be evaluated). Pick the rating whose description below best fits the evidence. Do not compute points or an overall score; the app does that. Do not give a high rating just because the rep avoided mistakes. These are reps practicing: if they did the main thing a category asks for with a minor miss, that is "3", not "2". Save "1" and "0" for clear failures. "4" means no meaningful weakness in that category; one clear miss makes it "3".
 
@@ -32,8 +32,8 @@ opening (Opening and Attention)
 Grade whether the first moments earn the owner's attention. Asking for a moment is a plus, not a requirement; no single opening formula is required.
 - 4: Says who they are and gives a specific, relevant reason for calling that makes the owner want to keep listening, in a sentence or two. Adjusts if the owner says they're busy.
 - 3: Clear introduction and reason, but the reason is generic ("I help local businesses"), so it earns little attention.
-- 2: The reason is vague or buried, or a long introduction or small talk comes before the owner can respond.
-- 1: Confusing opening, a long pitch dump, or ignores the owner saying they're busy.
+- 2: The reason is vague or hard to find, or small talk comes before the reason.
+- 1: Confusing opening, launches straight into a pitch, or ignores the owner saying they're busy.
 - 0: No introduction or reason for calling despite the opportunity.
 
 discovery (Pain Discovery)
@@ -49,7 +49,7 @@ Grade how well the rep connected what they sell to this owner: to the problem or
 - 4: Ties a specific benefit directly to a problem or detail the owner gave. Gives a straight answer about price when asked. No exaggeration.
 - 3: A relevant benefit for this kind of business, but only loosely connected to what the owner said.
 - 2: Generic features or benefits not tied to anything the owner said ("I build websites", "I can add online booking").
-- 1: Vague, rambling or exaggerated claims, or keeps pushing an angle the owner already rejected.
+- 1: Vague or exaggerated claims, or keeps pushing an angle the owner already rejected.
 - 0: Never explains what they offer or why it would help, despite the opportunity.
 If the owner asked about price and the rep didn't answer, rate at most "2". Misleading claims about the offer or its results, or stating something false about the owner's business as fact (their numbers, problems or history), cap this category at "1". Ordinary remarks and reasonable assumptions ("you must be slammed right now") are not invented facts.
 
@@ -59,7 +59,15 @@ listening (Listening and Adaptability)
 - 2: Acknowledges the owner but keeps running their own script; adapts inconsistently.
 - 1: Repeatedly ignores or talks past what the owner said, or repeats the same pitch without acknowledging the response.
 - 0: No moment where the rep responds to anything the owner said, despite the opportunity.
-Do not penalize the rep just for talking more than the owner, and never say the rep interrupted unless the transcript clearly shows it. But long monologues, or not answering the owner's direct question right away (making them ask again), cap listening at "3".
+Never say the rep interrupted unless the transcript clearly shows it. How long or clear the rep's answers were belongs to clarity, not here.
+
+clarity (Clear and Concise)
+Grade how clearly and briefly the rep spoke across the whole call: getting to the point, answering the question the owner actually asked, using plain words, and stopping once the point is made. Judge length against what was asked: two sentences in answer to "what do you do?" is great; a minute is rambling. The input gives the rep's answer lengths in words; use them as facts. Filler words are scored separately, so ignore them here.
+- 4: Every answer is short, clear and to the point; the owner never has to ask twice.
+- 3: Mostly clear and brief, with one long or unfocused answer.
+- 2: Several long or wandering answers, or the key point buried in extra words.
+- 1: Rambles most of the call; the owner has to ask again to get a straight answer.
+- 0: The rep's answers can't be followed at all.
 
 objection_handling (Objection Handling)
 An objection is real pushback: "not interested", "we already have someone", "too expensive", "I'm busy", "no meeting", "how did you get this number". Brush-offs like "send me an email", "send me some info" or "call me later" ARE objections and must be evaluated if raised. Interest with a condition ("maybe, if it actually works") is not an objection, and neither are the owner's instructions or preferences ("keep it short", "don't put a meeting request in the email"). Merge repeats of the same objection. Weight the most important objection most heavily. Different objections need different responses: "we already have someone", "too expensive" and "not interested" are not the same. Grade the quality of the response, not whether the owner gave in; do not penalize failing to overcome an objection that wasn't realistically recoverable.
@@ -86,7 +94,7 @@ Refusals:
 - Only aggressive pressure, or asking again after two or more refusals, caps listening, objection_handling and closing at "1".
 - The owner sometimes cuts the rep off mid-sentence. A rep line that trails off unfinished and the rep's next line that completes it are one turn, not a repeat.
 
-One moment, one category: judge each moment in the single category it belongs to most. One line must not drive low ratings in several categories (except the two-or-more-refusals rule above). Use a different moment as evidence for each category whenever possible.
+One moment, one category: judge each moment in the single category it belongs to most. Rambling, long answers and not answering the question asked count only in clarity. One line must not drive low ratings in several categories (except the two-or-more-refusals rule above). Use a different moment as evidence for each category whenever possible.
 
 Hard rules:
 - Misleading claims cap solution_fit at "1".
@@ -169,7 +177,7 @@ const SCHEMA = {
     summary: quoted('One or two sentences on the call overall'),
     categories: {
       type: 'array',
-      description: 'Exactly one entry for each of the six category ids',
+      description: `Exactly one entry for each of the ${AI_CATEGORIES.length} category ids`,
       items: {
         type: 'object',
         additionalProperties: false,
@@ -267,6 +275,8 @@ export const handler = async (event: FunctionUrlEvent) => {
     : 'The rep did not describe their offer ahead of time; work out what they were selling from the call.'
   const hidden = openHidden(body.hidden, process.env.OPENAI_API_KEY || '')
   const hiddenLine = hidden ? `\n\n${describeHidden(hidden)}` : ''
+  const stats = answerStats(lines)
+  const statsLine = `\n\nRep answer lengths (counted by the app): ${stats.answers} answers, ${stats.average} words on average, longest ${stats.longest} words.`
 
   for (let attempt = 1; attempt <= MAX_ATTEMPTS; attempt++) {
     const res = await fetch('https://api.openai.com/v1/responses', {
@@ -278,7 +288,7 @@ export const handler = async (event: FunctionUrlEvent) => {
       body: JSON.stringify({
         model: MODEL,
         instructions: INSTRUCTIONS,
-        input: `The owner was ${p.name || 'unknown'}, owner of ${p.business || 'a small business'} (${p.detail || 'no details'}).\n${offerLine}${hiddenLine}\n\nTranscript:\n${transcript}`,
+        input: `The owner was ${p.name || 'unknown'}, owner of ${p.business || 'a small business'} (${p.detail || 'no details'}).\n${offerLine}${hiddenLine}${statsLine}\n\nTranscript:\n${transcript}`,
         reasoning: { effort: 'medium' },
         // Reasoning tokens count toward this limit, so leave room for medium effort.
         max_output_tokens: 16000,
