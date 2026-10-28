@@ -273,6 +273,25 @@ export function quoteInTranscript(quote: string, lines: Line[]) {
   })
 }
 
+// The owner's actual words for an objection the grader quoted. An exact quote is kept
+// as is; a slightly-off one is swapped for the owner sentence it clearly matches (most
+// of its words, in that sentence). One that matches nothing the owner said is dropped.
+export function ownerWords(quote: string, lines: Line[]) {
+  const ownerLines = lines.filter((l) => l.role === 'assistant')
+  if (quoteInTranscript(quote, ownerLines)) return quote
+  const wanted = new Set(normalizeText(quote).split(' ').filter(Boolean))
+  if (!wanted.size) return null
+  let best = { score: 0, sentence: '' }
+  for (const l of ownerLines) {
+    for (const sentence of (l.text || '').split(/(?<=[.!?])\s+/)) {
+      const words = new Set(normalizeText(sentence).split(' '))
+      const score = [...wanted].filter((w) => words.has(w)).length / wanted.size
+      if (score > best.score) best = { score, sentence: sentence.trim() }
+    }
+  }
+  return best.score >= 0.6 ? best.sentence : null
+}
+
 // Blanks out any strength or weakness quote that isn't in the transcript and drops
 // objections the owner never actually said. Ratings stay as they are.
 export function verifyQuotes(output: ModelOutput, lines: Line[]): ModelOutput {
@@ -282,7 +301,10 @@ export function verifyQuotes(output: ModelOutput, lines: Line[]): ModelOutput {
     ...output,
     whatWorked: keepPoints(output.whatWorked),
     whatFellFlat: keepPoints(output.whatFellFlat),
-    objections: output.objections.filter((o) => quoteInTranscript(o.objection, lines)),
+    objections: output.objections.flatMap((o) => {
+      const said = ownerWords(o.objection, lines)
+      return said ? [{ ...o, objection: said }] : []
+    }),
   }
 }
 

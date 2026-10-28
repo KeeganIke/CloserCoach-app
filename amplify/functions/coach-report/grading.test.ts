@@ -2,6 +2,7 @@ import { test } from 'node:test'
 import assert from 'node:assert/strict'
 import {
   AI_CATEGORIES,
+  ownerWords,
   capObjectionHandling,
   termsOutsideOffer,
   answerStats,
@@ -509,4 +510,22 @@ test('deal terms the rep promised outside the offer box are found', () => {
   assert.deepEqual(termsOutsideOffer(offer, repLines), ['guarantee', 'money back'])
   assert.deepEqual(termsOutsideOffer(offer, repLines.slice(0, 1)), [])
   assert.deepEqual(termsOutsideOffer('', repLines), []) // no box, nothing to compare against
+})
+
+test('a slightly-off objection quote is swapped for what the owner actually said', () => {
+  const call: Line[] = [
+    ...lines,
+    { role: 'assistant', text: "Yeah. I'd want hours. But I can’t compete with a chain’s ten-buck price, so I don’t want something that makes promises I can’t keep." },
+  ]
+  // Exact quotes stay as written.
+  assert.equal(ownerWords('Just send me an email.', call), 'Just send me an email.')
+  // Paraphrased: snapped to the owner's real sentence.
+  assert.equal(
+    ownerWords("I can't compete with the chain's $10 price, so I don't want promises I can't keep", call),
+    'But I can’t compete with a chain’s ten-buck price, so I don’t want something that makes promises I can’t keep.',
+  )
+  // Nothing like it was said: dropped.
+  assert.equal(ownerWords('We already have a guy who does our website.', call), null)
+  // The rep's words don't count as the owner's.
+  assert.equal(ownerWords('How are most new customers finding your shop right now?', call), null)
 })
