@@ -3,6 +3,7 @@ import { startCall } from './realtimeCall.js'
 import { fetchReport } from './report.js'
 import Report from './Report.jsx'
 import GradingProgress from './GradingProgress.jsx'
+import Regrade from './Regrade.jsx'
 import { MAX_CALL_SECONDS, REPORT_URL, TOKEN_URL } from './config.js'
 
 const CODE_KEY = 'closer-coach-access-code'
@@ -31,6 +32,9 @@ function store(key, value) {
 // Any capitalization of "code" works, since email apps autocorrect it to "Code".
 const linkCode =
   [...new URLSearchParams(window.location.search)].find(([key]) => key.toLowerCase() === 'code')?.[1] || ''
+
+// /?regrade shows a box for grading a saved transcript instead of starting a call.
+const regradeMode = [...new URLSearchParams(window.location.search).keys()].some((key) => key.toLowerCase() === 'regrade')
 
 function readSavedCode() {
   if (linkCode) return linkCode
@@ -112,7 +116,7 @@ function App() {
   const callRef = useRef(null)
   const stickToBottom = useRef(true)
 
-  const gradeCall = async (callLines) => {
+  const gradeCall = async (callLines, callPersona = persona, callHidden = hidden) => {
     setReport(null)
     setReportError('')
     setReportStatus('loading')
@@ -121,9 +125,9 @@ function App() {
         await fetchReport({
           reportUrl: REPORT_URL,
           accessCode,
-          persona,
+          persona: callPersona,
           offer,
-          hidden,
+          hidden: callHidden,
           lines: realLines(callLines),
         }),
       )
@@ -132,6 +136,15 @@ function App() {
       setReportError(err.message)
       setReportStatus('error')
     }
+  }
+
+  const gradeSaved = (savedPersona, savedLines) => {
+    store(CODE_KEY, accessCode)
+    setPersona(savedPersona)
+    setHidden(null)
+    setLines(savedLines)
+    setPhase('ended')
+    gradeCall(savedLines, savedPersona, null)
   }
 
   const endCall = () => {
@@ -283,9 +296,13 @@ function App() {
                 required
               />
             )}
-            <button className="button primary" type="submit" disabled={phase === 'connecting'}>
-              {phase === 'connecting' ? 'Dialing…' : 'Start call'}
-            </button>
+            {regradeMode ? (
+              <Regrade onGrade={gradeSaved} />
+            ) : (
+              <button className="button primary" type="submit" disabled={phase === 'connecting'}>
+                {phase === 'connecting' ? 'Dialing…' : 'Start call'}
+              </button>
+            )}
             {error && <p className="error">{error}</p>}
           </form>
         )}
