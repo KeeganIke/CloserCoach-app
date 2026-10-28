@@ -117,7 +117,8 @@ export async function startCall({ tokenUrl, accessCode, offer, onTranscript, onA
     pc.close()
     mic.getTracks().forEach((t) => t.stop())
     audio.srcObject = null
-    return lines.map((l) => ({ ...l }))
+    // Words still being transcribed at hang-up never arrive; drop their "…".
+    return lines.map((l) => ({ ...l, pending: false }))
   }
 
   // hidden is sealed by the backend; only the report function can read it.

@@ -2,7 +2,7 @@
 // coaching report. Uses the same Amplify secrets as session-token.
 
 import { openHidden, type Hidden } from '../shared/hidden'
-import { AI_CATEGORIES, answerStats, buildReport, MIN_REP_TURNS, OUTCOMES, RATINGS, VERDICTS, countRepTurns, type Line } from './grading'
+import { AI_CATEGORIES, answerStats, buildReport, termsOutsideOffer, MIN_REP_TURNS, OUTCOMES, RATINGS, VERDICTS, countRepTurns, type Line } from './grading'
 
 const MODEL = 'gpt-6.1-sol'
 const MAX_LINES = 200
@@ -59,7 +59,7 @@ listening (Listening and Adaptability)
 - 2: Acknowledges the owner but keeps running their own script; adapts inconsistently.
 - 1: Repeatedly ignores or talks past what the owner said, or repeats the same pitch without acknowledging the response.
 - 0: No moment where the rep responds to anything the owner said, despite the opportunity.
-Never say the rep interrupted unless the transcript clearly shows it. How long or clear the rep's answers were belongs to clarity, not here.
+Never say the rep interrupted unless the transcript clearly shows it. How long or clear the rep's answers were belongs to clarity, not here. Brushing past a concern the owner stated (answering with something else) caps listening at "3".
 
 clarity (Clear and Concise)
 Grade how clearly and briefly the rep spoke across the whole call: getting to the point, answering the question the owner actually asked, using plain words, and stopping once the point is made. Judge length against what was asked: two sentences in answer to "what do you do?" is great; a minute is rambling. The input gives the rep's answer lengths in words; use them as facts. Filler words are scored separately, so ignore them here.
@@ -109,6 +109,10 @@ Evaluate only what the rep actually said and did. Never invent quotes, events or
 Quotes are rare. Only the owner's words in each objection card ("objection") are always an exact quote. Everywhere else, leave "quote" empty unless the exact words are clearly the best way to show the moment, such as a great line worth repeating. When you do quote, copy a whole sentence word for word from one transcript line, and never use the same quote twice.
 
 Write like a coach talking to the rep: plain, everyday words. No report-speak like "established referral traffic" or "demonstrated a website need".
+
+Your rating must match your own rationale: if the rationale describes a lower rating's wording (for example "not tied to what the owner said" is a "2" in solution_fit), use that lower rating. The app also limits objection_handling to what your objection verdicts show, so rate it consistently with them.
+
+If the input lists deal terms the rep promised that aren't in their offer description (a guarantee, money back, something free), never praise them. Add a weakness instead: "You offered [the term], which isn't in your offer description; only promise it if it's true, and add it to your offer if it is." Don't lower ratings any further for it.
 
 Before rating, check what the rep actually said. If they already did the right thing (for example said the service is fully handled when the owner worried about extra work), credit it in the rating and don't advise them to do it.
 
@@ -277,6 +281,11 @@ export const handler = async (event: FunctionUrlEvent) => {
   const hiddenLine = hidden ? `\n\n${describeHidden(hidden)}` : ''
   const stats = answerStats(lines)
   const statsLine = `\n\nRep answer lengths (counted by the app): ${stats.answers} answers, ${stats.average} words on average, longest ${stats.longest} words.`
+  const outside = termsOutsideOffer(offer, lines)
+  const termsLine = outside.length
+    ? `\n\nDeal terms the rep promised that are not in their offer description (found by the app): ${outside.join(', ')}.`
+    : ''
+
 
   for (let attempt = 1; attempt <= MAX_ATTEMPTS; attempt++) {
     const res = await fetch('https://api.openai.com/v1/responses', {
@@ -288,7 +297,7 @@ export const handler = async (event: FunctionUrlEvent) => {
       body: JSON.stringify({
         model: MODEL,
         instructions: INSTRUCTIONS,
-        input: `The owner was ${p.name || 'unknown'}, owner of ${p.business || 'a small business'} (${p.detail || 'no details'}).\n${offerLine}${hiddenLine}${statsLine}\n\nTranscript:\n${transcript}`,
+        input: `The owner was ${p.name || 'unknown'}, owner of ${p.business || 'a small business'} (${p.detail || 'no details'}).\n${offerLine}${hiddenLine}${statsLine}${termsLine}\n\nTranscript:\n${transcript}`,
         reasoning: { effort: 'medium' },
         // Reasoning tokens count toward this limit, so leave room for medium effort.
         max_output_tokens: 16000,

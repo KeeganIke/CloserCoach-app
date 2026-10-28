@@ -2,6 +2,8 @@ import { test } from 'node:test'
 import assert from 'node:assert/strict'
 import {
   AI_CATEGORIES,
+  capObjectionHandling,
+  termsOutsideOffer,
   answerStats,
   buildReport,
   inventsTerms,
@@ -264,7 +266,7 @@ test('each quote is shown only once', () => {
   )
 })
 
-test('suggested lines that make up deal terms are dropped; terms from the offer or the rep stay', () => {
+test('suggested lines that make up deal terms are dropped; terms from the offer stay', () => {
   const offer = '$77/month, fully built for you, no upfront fee, no contracts.'
   // In the offer box: fine, even though the rep never said it.
   assert.equal(inventsTerms('It is $77 a month with no upfront fee.', offer, lines), false)
@@ -272,9 +274,11 @@ test('suggested lines that make up deal terms are dropped; terms from the offer 
   assert.equal(inventsTerms('And if you are not happy you get a full refund.', offer, lines), true)
   assert.equal(inventsTerms('I will build you a free mockup first.', offer, lines), true)
   assert.equal(inventsTerms('It is only $49 a month.', offer, lines), true)
-  // Something the rep said on the call: fine.
+  // The offer box is the source of truth: a term the rep said but the box doesn't have isn't backed.
   const repSaid: Line[] = [...lines, { role: 'user', text: 'I can do a free mockup for you.' }]
-  assert.equal(inventsTerms('I will build you a free mockup first.', offer, repSaid), false)
+  assert.equal(inventsTerms('I will build you a free mockup first.', offer, repSaid), true)
+  // With no offer box, what the rep said on the call counts.
+  assert.equal(inventsTerms('I will build you a free mockup first.', '', repSaid), false)
   // Dollar amounts that aren't a price are fine.
   assert.equal(inventsTerms('If one extra job is worth $8,000, it pays for itself.', offer, lines), false)
 
@@ -468,4 +472,41 @@ test('clear and concise is rated by the model; filler words by code', () => {
   assert.equal(clarity.earnedPoints, 4.2)
   assert.equal(clarity.improvement, 'Improve clarity.')
   assert.equal(report.categories.find((c) => c.id === 'delivery')!.maxPoints, 3)
+})
+
+test('objection handling is capped by its own objection verdicts', () => {
+  const withVerdicts = (rating: Rating, verdicts: string[]) => {
+    const checked = validateModelOutput({
+      ...modelOutput({ objection_handling: rating }),
+      objections: verdicts.map((verdict) => ({ objection: 'Just send me an email.', yourResponse: 'x', verdict, why: 'x', betterLine: 'y' })),
+    })
+    assert.ok(checked.ok)
+    return capObjectionHandling(checked.value).categories.find((c) => c.id === 'objection_handling')!.rating
+  }
+  assert.equal(withVerdicts('4', ['worked', 'worked']), '4')
+  assert.equal(withVerdicts('4', ['worked', 'mixed']), '3')
+  assert.equal(withVerdicts('3', ['mixed', 'fell_flat']), '2') // the 89-point Mike call
+  assert.equal(withVerdicts('3', ['fell_flat', 'fell_flat']), '1')
+  assert.equal(withVerdicts('1', ['mixed']), '1') // never raised
+  assert.equal(withVerdicts('na', ['mixed']), 'na')
+  assert.equal(withVerdicts('3', []), '3') // no cards, no cap
+
+  // End to end: Mixed + Fell flat can't score Good.
+  const raw = modelOutput({ objection_handling: '3' })
+  raw.objections = [
+    { objection: 'Just send me an email.', yourResponse: 'x', verdict: 'mixed', why: 'x', betterLine: 'y' },
+    { objection: "Prices. I've got to go.", yourResponse: 'x', verdict: 'fell_flat', why: 'x', betterLine: 'y' },
+  ]
+  assert.equal(grade(raw).categories.find((c) => c.id === 'objection_handling')!.earnedPoints, 12)
+})
+
+test('deal terms the rep promised outside the offer box are found', () => {
+  const offer = 'I build and run websites for $77/mo with no upfront fee and no contracts.'
+  const repLines: Line[] = [
+    { role: 'user', text: "It's $77 a month, no upfront fee." },
+    { role: 'user', text: "If you're not satisfied, you get your money back. That's our guarantee." },
+  ]
+  assert.deepEqual(termsOutsideOffer(offer, repLines), ['guarantee', 'money back'])
+  assert.deepEqual(termsOutsideOffer(offer, repLines.slice(0, 1)), [])
+  assert.deepEqual(termsOutsideOffer('', repLines), []) // no box, nothing to compare against
 })

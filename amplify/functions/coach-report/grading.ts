@@ -309,11 +309,44 @@ export function dropRepeatedQuotes(output: ModelOutput): ModelOutput {
 // a job is worth, are fine.
 const TERM_PATTERNS = [/\bfees?\b/gi, /\bguarantee[ds]?\b/gi, /\brefunds?\b/gi, /\bmoney back\b/gi, /\bfree\b/gi, /\$\s?\d[\d,.]*\s*(?:a|per|\/)\s*mo(?:nth)?\b/gi]
 
+// A price counts as known if the same number appears ("$77 a month" vs "$77/month").
+const termKey = (term: string) => (term.includes('$') ? term.replace(/[^\d]/g, '') : normalizeText(term).replace(/\s/g, ''))
+const squash = (text: string) => normalizeText(text).replace(/\s/g, '')
+const repText = (lines: Line[]) => lines.filter((l) => l.role === 'user').map((l) => l.text).join(' ')
+
+// The offer box is the source of truth for the deal. Without one, fall back to
+// what the rep said on the call.
 export function inventsTerms(line: string, offer: string, lines: Line[]) {
-  const known = normalizeText([offer, ...lines.filter((l) => l.role === 'user').map((l) => l.text)].join(' ')).replace(/\s/g, '')
-  // A price counts as known if the same number appears ("$77 a month" vs "$77/month").
-  const key = (term: string) => (term.includes('$') ? term.replace(/[^\d]/g, '') : normalizeText(term).replace(/\s/g, ''))
-  return TERM_PATTERNS.some((re) => (line.match(re) || []).some((term) => !known.includes(key(term))))
+  const known = squash(offer.trim() ? offer : repText(lines))
+  return TERM_PATTERNS.some((re) => (line.match(re) || []).some((term) => !known.includes(termKey(term))))
+}
+
+// Deal terms the rep promised on the call that their offer box doesn't include
+// ("money back", "guarantee"), so the coach can flag them instead of praising them.
+export function termsOutsideOffer(offer: string, lines: Line[]) {
+  if (!offer.trim()) return []
+  const known = squash(offer)
+  const said = TERM_PATTERNS.flatMap((re) => repText(lines).match(re) || [])
+  return [...new Set(said.filter((t) => !known.includes(termKey(t))).map((t) => t.toLowerCase().trim()))]
+}
+
+// Objection Handling can't be rated above what its own objection cards show.
+const VERDICT_CAP = (verdicts: string[]): Rating | null => {
+  if (!verdicts.length || verdicts.every((v) => v === 'worked')) return null
+  if (verdicts.every((v) => v === 'fell_flat')) return '1'
+  if (!verdicts.includes('worked')) return '2'
+  return '3'
+}
+
+export function capObjectionHandling(output: ModelOutput): ModelOutput {
+  const cap = VERDICT_CAP(output.objections.map((o) => o.verdict))
+  if (!cap) return output
+  return {
+    ...output,
+    categories: output.categories.map((c) =>
+      c.id === 'objection_handling' && c.rating !== 'na' && Number(c.rating) > Number(cap) ? { ...c, rating: cap } : c,
+    ),
+  }
 }
 
 // Removes suggested lines that make up terms of the deal.
@@ -335,7 +368,7 @@ export function buildReport(raw: unknown, lines: Line[], offer = ''): GradeResul
   const checked = validateModelOutput(raw)
   if (!checked.ok) return { ok: false, reason: 'invalid', error: checked.error }
 
-  const output = dropInventedTerms(dropRepeatedQuotes(verifyQuotes(checked.value, lines)), offer, lines)
+  const output = capObjectionHandling(dropInventedTerms(dropRepeatedQuotes(verifyQuotes(checked.value, lines)), offer, lines))
   // Delivery alone can't make a score: if the model could judge nothing, the call was too short.
   if (output.categories.every((c) => c.rating === 'na')) {
     return { ok: false, reason: 'too_short', error: 'every category was N/A' }
