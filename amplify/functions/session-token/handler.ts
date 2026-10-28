@@ -122,13 +122,16 @@ export const handler = async (event: FunctionUrlEvent) => {
         audio: {
           input: {
             transcription: { model: 'gpt-4o-mini-transcribe', language: 'en' },
-            // Semantic turn taking: the owner waits while the rep is mid-thought (a pause after
-            // "I help local shops...") and answers once they've finished. "low" is the most patient.
-            // (Was server_vad with 0.8s of silence, which cut reps off at every pause.)
+            // Volume-based turn taking: threshold 0.8 (default 0.5) ignores quiet noises and laughs,
+            // and the owner replies after 1.2s of silence so a mid-sentence pause doesn't end the
+            // rep's turn (0.8s cut reps off). semantic_vad was tried: it waited up to ~8s and let
+            // small noises start turns ("Still there?").
             // interrupt_response false: stray mic noise can't cut the owner off mid-sentence.
             turn_detection: {
-              type: 'semantic_vad',
-              eagerness: 'low',
+              type: 'server_vad',
+              threshold: 0.8,
+              prefix_padding_ms: 300,
+              silence_duration_ms: 1200,
               interrupt_response: false,
             },
             // Filters laptop-mic echo so the owner doesn't hear itself and stop mid-sentence.
