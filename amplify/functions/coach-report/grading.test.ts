@@ -3,6 +3,7 @@ import assert from 'node:assert/strict'
 import {
   AI_CATEGORIES,
   buildReport,
+  inventsTerms,
   CATEGORIES,
   dropRepeatedQuotes,
   performanceGrade,
@@ -37,13 +38,13 @@ function modelOutput(ratings: Ratings = {}, outcome = 'no_meeting') {
       id: c.id,
       rating: ratings[c.id] ?? '3',
       rationale: `Rationale for ${c.id}.`,
-      evidence: 'Do you have thirty seconds?',
+      whatHappened: `What happened in ${c.id}.`,
       improvement: `Improve ${c.id}.`,
       tryLine: `Try line for ${c.id}.`,
     })),
-    outcome: { status: outcome, quote: "I've got to go.", rationale: 'Dave ended the call.' },
-    qualification: { status: 'insufficient_information', quote: '', rationale: 'The rep never learned enough.' },
+    outcome: { status: outcome, rationale: 'Dave ended the call.' },
     whatWorked: [{ point: 'You asked permission up front.', quote: 'Do you have thirty seconds?' }],
+    whatFellFlat: [{ point: 'You never set a follow-up time.', quote: '' }],
     focusNextCall: 'Attach a specific time to the email.',
     hiddenCoaching: '',
     objections: [
@@ -145,9 +146,8 @@ test('a "send me info" ending is accepted as follow_up_agreed or no_meeting', ()
   for (const outcome of ['follow_up_agreed', 'no_meeting']) {
     assert.ok(validateModelOutput(modelOutput({}, outcome)).ok)
   }
-  for (const status of ['qualified', 'not_qualified', 'insufficient_information']) {
-    assert.ok(validateModelOutput({ ...modelOutput(), qualification: { status, quote: '', rationale: 'x' } }).ok)
-  }
+  // Outcomes no longer carry a quote.
+  assert.ok(validateModelOutput({ ...modelOutput(), outcome: { status: 'no_meeting', rationale: 'x' } }).ok)
 })
 
 test('fewer than 3 rep turns is too short', () => {
@@ -171,7 +171,8 @@ test('invalid model output is rejected', () => {
     ['model rates delivery', { ...base, categories: base.categories.map((c, i) => (i ? c : { ...c, id: 'delivery' })) }],
     ['seven categories', { ...base, categories: [...base.categories, { ...base.categories[0], id: 'delivery' }] }],
     ['unknown outcome', { ...base, outcome: { ...base.outcome, status: 'maybe_later' } }],
-    ['unknown qualification', { ...base, qualification: { ...base.qualification, status: 'decision_maker' } }],
+    ['missing whatFellFlat', { ...base, whatFellFlat: undefined }],
+    ['outcome without rationale', { ...base, outcome: { status: 'no_meeting' } }],
     ['missing summary', { ...base, summary: undefined }],
     ['missing focusNextCall', { ...base, focusNextCall: undefined }],
     ['missing whatWorked', { ...base, whatWorked: undefined }],
@@ -204,13 +205,12 @@ test('quote verification removes a fabricated quote and keeps a real one', () =>
   const shortened = { ...checked.value, whatWorked: [{ point: 'Shortened.', quote: 'Happy to... what would you want to see' }] }
   assert.equal(verifyQuotes(shortened, lines).whatWorked[0].quote, 'Happy to... what would you want to see')
 
-  // A fabricated category quote is removed without changing the rating.
+  // A fabricated weakness quote is removed; the point and the score stay.
   const raw = modelOutput(allRatings('4'))
-  raw.whatWorked = []
-  raw.categories[0].evidence = 'Let me tell you about our award-winning platform.'
+  raw.whatFellFlat = [{ point: 'Overpromised.', quote: 'Let me tell you about our award-winning platform.' }]
   const report = grade(raw)
-  assert.equal(report.categories[0].evidence, '')
-  assert.equal(report.categories[0].rating, '4')
+  assert.equal(report.whatFellFlat[0].quote, '')
+  assert.equal(report.whatFellFlat[0].point, 'Overpromised.')
   assert.equal(report.overallScore, 100)
 })
 
@@ -239,28 +239,44 @@ test('each quote is shown only once', () => {
   const checked = validateModelOutput({
     ...modelOutput(),
     whatWorked: [{ point: 'Permission.', quote: 'Do you have thirty seconds?' }],
-    outcome: { status: 'no_meeting', quote: "Prices. I've got to go.", rationale: 'x' },
+    whatFellFlat: [
+      { point: 'Repeats a strength.', quote: 'Do you have thirty seconds?' },
+      { point: 'Repeats an objection response.', quote: 'What would you want to see in it?' },
+      { point: 'New.', quote: 'How are most new customers finding your shop right now?' },
+    ],
   })
   assert.ok(checked.ok)
   const out = dropRepeatedQuotes(checked.value)
   assert.equal(out.whatWorked[0].quote, 'Do you have thirty seconds?')
-  assert.ok(out.categories.every((c) => c.evidence === ''))
-  assert.equal(out.outcome.quote, "Prices. I've got to go.")
+  assert.deepEqual(
+    out.whatFellFlat.map((p) => p.quote),
+    ['', '', 'How are most new customers finding your shop right now?'],
+  )
   assert.equal(out.objections[0].yourResponse, 'What would you want to see in it?')
 })
 
-test('a category quote that repeats an objection response is blanked; distinct ones stay', () => {
-  const raw = modelOutput()
-  raw.whatWorked = []
-  raw.categories[0].evidence = "Hi Dave, it's Sam with Local Lift."
-  raw.categories[1].evidence = 'What would you want to see in it?'
-  raw.categories[2].evidence = 'How are most new customers finding your shop right now?'
-  raw.categories[3].evidence = 'How are most new customers finding your shop right now?'
-  const report = grade(raw)
-  assert.equal(report.categories[0].evidence, "Hi Dave, it's Sam with Local Lift.")
-  assert.equal(report.categories[1].evidence, '')
-  assert.equal(report.categories[2].evidence, 'How are most new customers finding your shop right now?')
-  assert.equal(report.categories[3].evidence, '')
+test('suggested lines that make up deal terms are dropped; terms from the offer or the rep stay', () => {
+  const offer = '$77/month, fully built for you, no upfront fee, no contracts.'
+  // In the offer box: fine, even though the rep never said it.
+  assert.equal(inventsTerms('It is $77 a month with no upfront fee.', offer, lines), false)
+  // Not in the offer and never said: made up.
+  assert.equal(inventsTerms('And if you are not happy you get a full refund.', offer, lines), true)
+  assert.equal(inventsTerms('I will build you a free mockup first.', offer, lines), true)
+  assert.equal(inventsTerms('It is only $49 a month.', offer, lines), true)
+  // Something the rep said on the call: fine.
+  const repSaid: Line[] = [...lines, { role: 'user', text: 'I can do a free mockup for you.' }]
+  assert.equal(inventsTerms('I will build you a free mockup first.', offer, repSaid), false)
+  // Dollar amounts that aren't a price are fine.
+  assert.equal(inventsTerms('If one extra job is worth $8,000, it pays for itself.', offer, lines), false)
+
+  const raw = modelOutput({ discovery: '2' })
+  raw.categories[1].tryLine = 'Plus you get a money-back guarantee.'
+  raw.objections[0].verdict = 'mixed'
+  raw.objections[0].betterLine = 'It is $77 a month with no upfront fee.'
+  const report = buildReport(raw, lines, offer)
+  assert.ok(report.ok)
+  assert.equal(report.report.categories.find((c) => c.id === 'discovery')!.tryLine, '')
+  assert.equal(report.report.objections[0].betterLine, 'It is $77 a month with no upfront fee.')
 })
 
 test('delivery counts filler words in rep lines only', () => {
@@ -365,17 +381,20 @@ test('weights come from code, not from the model', () => {
 
 test('extra items are trimmed and a "worked" objection has no better line', () => {
   const p = { point: 'x', quote: '' }
-  const report = grade({ ...modelOutput(), whatWorked: [p, p, p] })
+  const report = grade({ ...modelOutput(), whatWorked: [p, p, p], whatFellFlat: [p, p, p, p] })
   assert.equal(report.whatWorked.length, 2)
+  assert.equal(report.whatFellFlat.length, 3)
   assert.equal(report.objections[0].betterLine, '')
 })
 
 test('"How to improve" advice only appears below full marks', () => {
   const report = grade(modelOutput({ opening: '4', discovery: '2', closing: 'na' }))
   const byId = (id: string) => report.categories.find((c) => c.id === id)!
+  assert.equal(byId('opening').whatHappened, '')
   assert.equal(byId('opening').improvement, '')
   assert.equal(byId('opening').tryLine, '')
   assert.equal(byId('closing').improvement, '')
+  assert.equal(byId('discovery').whatHappened, 'What happened in discovery.')
   assert.equal(byId('discovery').improvement, 'Improve discovery.')
   assert.equal(byId('discovery').tryLine, 'Try line for discovery.')
   // Clean delivery needs no advice.
@@ -399,7 +418,7 @@ test('delivery advice names the fillers used', () => {
 
 test('categories missing the advice fields are rejected', () => {
   const base = modelOutput()
-  const noAdvice = { ...base, categories: base.categories.map(({ improvement, tryLine, ...c }) => c) }
+  const noAdvice = { ...base, categories: base.categories.map(({ whatHappened, improvement, tryLine, ...c }) => c) }
   assert.equal(validateModelOutput(noAdvice).ok, false)
 })
 

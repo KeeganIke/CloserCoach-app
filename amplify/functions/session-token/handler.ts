@@ -248,7 +248,7 @@ ${emailRule}
 - If the rep has done a solid job overall (asked about your business, connected their offer to your problem, handled your concerns reasonably), agree to a short meeting or call at a specific time. They don't need to be perfect. Before agreeing to any next step, raise at least two different real objections.
 - Stay on the line for at least the rep's first four or five turns, even when you're busy. You can be short and impatient, but don't hang up early unless the rep is rude or pushy.
 - After that, if the rep keeps doing badly, end the call politely but firmly ("I've got to go") and stop engaging.
-- When the rep says goodbye or wraps up ("have a good one", "thanks for your time", "bye"), answer with one short goodbye like "You too, bye." and nothing else. No reminders, no "send the email", no "I've got to get back to work".`
+- When the rep wraps up the call, answer what they actually said in one short line, then say bye, and nothing else. If they said "have a good one", say "You too, bye." If they confirmed a plan ("we'll talk Friday, sounds good?"), say something like "Sounds good, talk Friday. Bye." No reminders, no "send the email", no "I've got to get back to work".`
 }
 
 function json(statusCode: number, body: object) {

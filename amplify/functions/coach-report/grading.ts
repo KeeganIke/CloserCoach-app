@@ -48,30 +48,31 @@ const MIN_DELIVERY_WORDS = 20
 const FILLER_PATTERNS = [/\b(?:u+m+|u+h+|e+r+m+)\b/gi, /\blike,/gi, /,\s*you know\s*,/gi]
 
 export const OUTCOMES = ['meeting_booked', 'follow_up_agreed', 'no_meeting', 'declined', 'insufficient_information'] as const
-export const QUALIFICATIONS = ['qualified', 'not_qualified', 'insufficient_information'] as const
 export const VERDICTS = ['worked', 'mixed', 'fell_flat'] as const
 
 export const MIN_REP_TURNS = 3
 const MAX_STRENGTHS = 2
+const MAX_WEAKNESSES = 3
 const MAX_OBJECTIONS = 3
 
 export type CategoryId = (typeof CATEGORIES)[number]['id']
 export type AiCategoryId = Exclude<CategoryId, 'delivery'>
 export type Rating = (typeof RATINGS)[number]
 export type Line = { role: 'user' | 'assistant'; text: string }
-type Evidence = { status: string; quote: string; rationale: string }
-type Point = { point: string; quote: string }
+type Outcome = { status: string; rationale: string }
+type Point = { point: string; quote: string } // quote is optional (empty) and rarely used
 type Objection = { objection: string; yourResponse: string; verdict: string; why: string; betterLine: string }
-// improvement and tryLine are the "How to improve" advice, empty at full marks or N/A.
-type RatedCategory<Id> = { id: Id; rating: Rating; rationale: string; evidence: string; improvement: string; tryLine: string }
+// The "How to improve" advice, empty at full marks or N/A: whatHappened tells the
+// moment in plain words, improvement is the one-line "next time", tryLine what to say.
+type RatedCategory<Id> = { id: Id; rating: Rating; rationale: string; whatHappened: string; improvement: string; tryLine: string }
 
 // What the model returns (after validation).
 export type ModelOutput = {
   summary: string
   categories: RatedCategory<AiCategoryId>[]
-  outcome: Evidence
-  qualification: Evidence
+  outcome: Outcome
   whatWorked: Point[]
+  whatFellFlat: Point[]
   focusNextCall: string
   hiddenCoaching: string // about what the owner was hiding; empty when it wasn't known
   objections: Objection[]
@@ -85,7 +86,7 @@ export type ScoredCategory = {
   rating: Rating
   earnedPoints: number | null // null for N/A
   rationale: string
-  evidence: string
+  whatHappened: string
   improvement: string
   tryLine: string
 }
@@ -152,11 +153,9 @@ const isObj = (v: unknown): v is Record<string, unknown> => typeof v === 'object
 const isStr = (v: unknown): v is string => typeof v === 'string'
 const oneOf = <T extends string>(list: readonly T[], v: unknown): v is T => list.includes(v as T)
 
-function checkEvidence(v: unknown, statuses: readonly string[], field: string) {
-  if (!isObj(v) || !oneOf(statuses, v.status) || !isStr(v.quote) || !isStr(v.rationale)) {
-    throw new Error(`invalid ${field}`)
-  }
-  return { status: v.status, quote: v.quote, rationale: v.rationale }
+function checkOutcome(v: unknown) {
+  if (!isObj(v) || !oneOf(OUTCOMES, v.status) || !isStr(v.rationale)) throw new Error('invalid outcome')
+  return { status: v.status, rationale: v.rationale }
 }
 
 function checkPoints(v: unknown, field: string, max: number) {
@@ -183,7 +182,7 @@ export function validateModelOutput(raw: unknown): { ok: true; value: ModelOutpu
       if (seen.has(c.id)) throw new Error(`duplicate category ${c.id}`)
       seen.add(c.id)
       if (!oneOf(RATINGS, c.rating)) throw new Error(`invalid rating for ${c.id}`)
-      if (![c.rationale, c.evidence, c.improvement, c.tryLine].every(isStr)) throw new Error(`missing fields for ${c.id}`)
+      if (![c.rationale, c.whatHappened, c.improvement, c.tryLine].every(isStr)) throw new Error(`missing fields for ${c.id}`)
       if (c.rating !== 'na' && !(c.rationale as string).trim()) throw new Error(`missing rationale for ${c.id}`)
       // No advice at full marks or N/A.
       const advise = c.rating !== '4' && c.rating !== 'na'
@@ -191,7 +190,7 @@ export function validateModelOutput(raw: unknown): { ok: true; value: ModelOutpu
         id: c.id,
         rating: c.rating,
         rationale: c.rationale as string,
-        evidence: c.evidence as string,
+        whatHappened: advise ? (c.whatHappened as string) : '',
         improvement: advise ? (c.improvement as string) : '',
         tryLine: advise ? (c.tryLine as string) : '',
       }
@@ -217,9 +216,9 @@ export function validateModelOutput(raw: unknown): { ok: true; value: ModelOutpu
       value: {
         summary: raw.summary as string,
         categories,
-        outcome: checkEvidence(raw.outcome, OUTCOMES, 'outcome'),
-        qualification: checkEvidence(raw.qualification, QUALIFICATIONS, 'qualification'),
+        outcome: checkOutcome(raw.outcome),
         whatWorked: checkPoints(raw.whatWorked, 'whatWorked', MAX_STRENGTHS),
+        whatFellFlat: checkPoints(raw.whatFellFlat, 'whatFellFlat', MAX_WEAKNESSES),
         focusNextCall: raw.focusNextCall as string,
         hiddenCoaching: raw.hiddenCoaching as string,
         objections,
@@ -260,55 +259,67 @@ export function quoteInTranscript(quote: string, lines: Line[]) {
 // owner never actually said. Ratings stay as they are.
 export function verifyQuotes(output: ModelOutput, lines: Line[]): ModelOutput {
   const keep = (q: string) => (quoteInTranscript(q, lines) ? q : '')
+  const keepPoints = (points: Point[]) => points.map((p) => ({ ...p, quote: keep(p.quote) }))
   return {
     ...output,
-    categories: output.categories.map((c) => ({ ...c, evidence: keep(c.evidence) })),
-    outcome: { ...output.outcome, quote: keep(output.outcome.quote) },
-    qualification: { ...output.qualification, quote: keep(output.qualification.quote) },
-    whatWorked: output.whatWorked.map((p) => ({ ...p, quote: keep(p.quote) })),
+    whatWorked: keepPoints(output.whatWorked),
+    whatFellFlat: keepPoints(output.whatFellFlat),
     objections: output.objections
       .filter((o) => quoteInTranscript(o.objection, lines))
       .map((o) => ({ ...o, yourResponse: keep(o.yourResponse) })),
   }
 }
 
-// Shows each quote once. Strengths and objection responses keep theirs; a category,
-// outcome or qualification quote that repeats one of them (or an earlier one) is blanked.
+// Shows each quote once: a strength or weakness quote that repeats an objection
+// response (or an earlier quote) is blanked.
 export function dropRepeatedQuotes(output: ModelOutput): ModelOutput {
-  const seen: string[] = []
-  const repeats = (q: string) => {
-    const n = normalizeText(q)
-    return seen.some((s) => s.includes(n) || n.includes(s))
-  }
-  const note = (q: string) => {
-    if (normalizeText(q)) seen.push(normalizeText(q))
-  }
+  const seen = output.objections.map((o) => normalizeText(o.yourResponse)).filter(Boolean)
   const once = (q: string) => {
-    if (!normalizeText(q) || repeats(q)) return ''
-    note(q)
+    const n = normalizeText(q)
+    if (!n || seen.some((s) => s.includes(n) || n.includes(s))) return ''
+    seen.push(n)
     return q
   }
-  const whatWorked = output.whatWorked.map((p) => ({ ...p, quote: once(p.quote) }))
-  output.objections.forEach((o) => note(o.yourResponse))
   return {
     ...output,
-    whatWorked,
-    categories: output.categories.map((c) => ({ ...c, evidence: once(c.evidence) })),
-    outcome: { ...output.outcome, quote: once(output.outcome.quote) },
-    qualification: { ...output.qualification, quote: once(output.qualification.quote) },
+    whatWorked: output.whatWorked.map((p) => ({ ...p, quote: once(p.quote) })),
+    whatFellFlat: output.whatFellFlat.map((p) => ({ ...p, quote: once(p.quote) })),
+  }
+}
+
+// Words in a suggested line that state terms of the deal (fees, guarantees, refunds,
+// "free", a monthly price). If the rep's offer and the rep's own words never mention
+// them, the grader made them up ("no upfront fee"). Other dollar amounts, like what
+// a job is worth, are fine.
+const TERM_PATTERNS = [/\bfees?\b/gi, /\bguarantee[ds]?\b/gi, /\brefunds?\b/gi, /\bmoney back\b/gi, /\bfree\b/gi, /\$\s?\d[\d,.]*\s*(?:a|per|\/)\s*mo(?:nth)?\b/gi]
+
+export function inventsTerms(line: string, offer: string, lines: Line[]) {
+  const known = normalizeText([offer, ...lines.filter((l) => l.role === 'user').map((l) => l.text)].join(' ')).replace(/\s/g, '')
+  // A price counts as known if the same number appears ("$77 a month" vs "$77/month").
+  const key = (term: string) => (term.includes('$') ? term.replace(/[^\d]/g, '') : normalizeText(term).replace(/\s/g, ''))
+  return TERM_PATTERNS.some((re) => (line.match(re) || []).some((term) => !known.includes(key(term))))
+}
+
+// Removes suggested lines that make up terms of the deal.
+export function dropInventedTerms(output: ModelOutput, offer: string, lines: Line[]): ModelOutput {
+  const clean = (line: string) => (line && inventsTerms(line, offer, lines) ? '' : line)
+  return {
+    ...output,
+    categories: output.categories.map((c) => ({ ...c, tryLine: clean(c.tryLine) })),
+    objections: output.objections.map((o) => ({ ...o, betterLine: clean(o.betterLine) })),
   }
 }
 
 export type GradeResult = { ok: true; report: Report } | { ok: false; reason: 'invalid' | 'too_short'; error: string }
 
 // Turns the model's raw JSON into the final report.
-export function buildReport(raw: unknown, lines: Line[]): GradeResult {
+export function buildReport(raw: unknown, lines: Line[], offer = ''): GradeResult {
   if (countRepTurns(lines) < MIN_REP_TURNS) return { ok: false, reason: 'too_short', error: 'too few rep turns' }
 
   const checked = validateModelOutput(raw)
   if (!checked.ok) return { ok: false, reason: 'invalid', error: checked.error }
 
-  const output = dropRepeatedQuotes(verifyQuotes(checked.value, lines))
+  const output = dropInventedTerms(dropRepeatedQuotes(verifyQuotes(checked.value, lines)), offer, lines)
   // Delivery alone can't make a score: if the model could judge nothing, the call was too short.
   if (output.categories.every((c) => c.rating === 'na')) {
     return { ok: false, reason: 'too_short', error: 'every category was N/A' }
@@ -316,7 +327,7 @@ export function buildReport(raw: unknown, lines: Line[]): GradeResult {
   const delivery = scoreDelivery(lines)
   const rated = [
     ...output.categories,
-    { id: 'delivery' as const, rating: delivery.rating, rationale: delivery.rationale, evidence: '', improvement: delivery.improvement, tryLine: '' },
+    { id: 'delivery' as const, rating: delivery.rating, rationale: delivery.rationale, whatHappened: '', improvement: delivery.improvement, tryLine: '' },
   ]
   const { categories, overallScore } = scoreCategories(rated)
   if (overallScore === null) return { ok: false, reason: 'too_short', error: 'every category was N/A' }
@@ -330,7 +341,7 @@ export function buildReport(raw: unknown, lines: Line[]): GradeResult {
       ...output,
       categories: categories.map((c) => {
         const r = rated.find((x) => x.id === c.id)!
-        return { ...c, rationale: r.rationale, evidence: r.evidence, improvement: r.improvement, tryLine: r.tryLine }
+        return { ...c, rationale: r.rationale, whatHappened: r.whatHappened, improvement: r.improvement, tryLine: r.tryLine }
       }),
     },
   }

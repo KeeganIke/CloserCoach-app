@@ -2,7 +2,7 @@
 // coaching report. Uses the same Amplify secrets as session-token.
 
 import { openHidden, type Hidden } from '../shared/hidden'
-import { AI_CATEGORIES, buildReport, MIN_REP_TURNS, OUTCOMES, QUALIFICATIONS, RATINGS, VERDICTS, countRepTurns, type Line } from './grading'
+import { AI_CATEGORIES, buildReport, MIN_REP_TURNS, OUTCOMES, RATINGS, VERDICTS, countRepTurns, type Line } from './grading'
 
 const MODEL = 'gpt-6.1-sol'
 const MAX_LINES = 200
@@ -96,7 +96,11 @@ Hard rules:
 
 ## Evidence
 
-Evaluate only what the rep actually said and did. Never invent quotes, events or objections. Every quote ("evidence", "quote", "objection", "yourResponse") must be copied word for word from a single transcript line; use an empty string when there is nothing to quote. Quote a whole sentence, or the whole clause that matters (up to about 25 words), so it reads clearly on its own; never a fragment that loses or changes the meaning. Use "..." only to skip filler words inside it. Never use the same quote twice anywhere in the report; pick a different moment or leave the quote empty. Quotes are optional: only include one when it shows exactly the moment you're talking about. A loosely related quote or a sentence fragment is worse than none, so leave it empty when in doubt. The transcript has no timestamps; do not output any. Keep the quote (what was observed) separate from the rationale (your interpretation), and never let the rationale restate or paraphrase the quote; say why it helped or hurt instead. Every rating other than "na" needs a one-sentence rationale; for "na", say briefly why it couldn't be evaluated.
+Evaluate only what the rep actually said and did. Never invent quotes, events or objections. The transcript has no timestamps; do not output any. Every rating other than "na" needs a one-sentence rationale; for "na", say briefly why it couldn't be evaluated.
+
+Quotes are rare. Only the objection cards always quote ("objection" and "yourResponse"). Everywhere else, leave "quote" empty unless the exact words are clearly the best way to show the moment, such as a great line worth repeating. When you do quote, copy a whole sentence word for word from one transcript line, and never use the same quote twice.
+
+Write like a coach talking to the rep: plain, everyday words. No report-speak like "established referral traffic" or "demonstrated a website need".
 
 Before rating, check what the rep actually said. If they already did the right thing (for example said the service is fully handled when the owner worried about extra work), credit it in the rating and don't advise them to do it.
 
@@ -104,7 +108,7 @@ Before rating, check what the rep actually said. If they already did the right t
 
 The input may describe the owner's secret situation: real problems, their current setup and the concerns they had ready. The rep could not see any of it. Use it for hiddenCoaching, and to point the pain discovery advice at the area the rep missed (as a question they could have asked). Never change a rating because of it: rate only what the transcript shows, so never mark the rep down for not finding something they couldn't know about.
 
-## Outcome and qualification (separate from the ratings)
+## Outcome (separate from the ratings)
 
 Outcome:
 - meeting_booked: the owner explicitly agreed to a meeting or call at a specific day or time, and the agreement was confirmed.
@@ -114,24 +118,19 @@ Outcome:
 - insufficient_information: the transcript does not establish the outcome (for example it cuts off mid-conversation).
 Vague interest, an unanswered meeting request, or a request for information is never meeting_booked.
 
-Qualification, judged from the transcript only:
-- qualified: the call established a real need or problem the offer addresses, and nothing showed the owner can't buy (budget, timing, existing contract).
-- not_qualified: the call established the owner is a poor fit (no relevant need, locked into a competitor, clearly no budget).
-- insufficient_information: the rep never found out enough to tell.
-The persona is always the business owner, so decision-making authority is never in question. Many calls will reasonably be insufficient_information; that signals weak discovery.
-
-Give each one a supporting quote and a one-sentence rationale.
+Give the outcome a one-sentence rationale.
 
 ## Coaching
 
-For every category rated "3" or lower, fill in the "How to improve" advice the rep will open under that category. This is the most useful part of the report, so make it concrete:
-- evidence: the rep's full sentence at the moment that cost them the most in this category, if one moment clearly did; otherwise empty.
-- improvement: two or three sentences: what the owner was really asking for or signaling at that moment, why the rep's response fell short (use the owner's reaction as proof, e.g. "she said views don't pay the rent"), and exactly what to do instead next time. Tied to this call, never generic ("improve discovery", "be more confident").
+For every category rated "3" or lower, fill in the "How to improve" advice the rep will open under that category. This is the most useful part of the report, so make it concrete and easy to read:
+- whatHappened: one or two plain sentences telling the story of the moment that cost the most: first what the owner said or asked, then what the rep did instead. Example: "Tom asked you to explain what you're offering. Instead of answering, you said you weren't there to waste his time and asked another question, so he had to ask again."
+- improvement: one short, plain instruction for next time, in the second person, starting with "When..." or a verb. Example: "When an owner asks what you're selling, tell them in one sentence before asking anything else." Never generic ("improve discovery", "be more confident").
 - tryLine: the exact words the rep could have said at that moment: natural, spoken, one or two sentences, fitted to this owner and business. It must be meaningfully different from what the rep actually said; never hand back the rep's own line.
-For "4" and "na", leave improvement and tryLine empty. Each category's advice must be about a different moment or skill; don't repeat the same fix across categories.
+For "4" and "na", leave whatHappened, improvement and tryLine empty. Each category's advice must be about a different moment or skill; don't repeat the same fix across categories.
 
 - hiddenCoaching: only if the input includes what the owner was hiding (otherwise an empty string). One or two sentences: which hidden problems the rep uncovered, and for one they missed, the specific question that would have opened it up. If they found everything, say what they did that worked.
-- whatWorked: up to two specific strengths, each with a supporting quote. Do not invent praise to fill the slots; an empty list is fine.
+- whatWorked: up to two specific strengths, one plain sentence each. Do not invent praise to fill the slots; an empty list is fine.
+- whatFellFlat: up to three weaknesses, most important first, one plain sentence each. A quick summary of the biggest misses; don't copy the category advice word for word.
 - focusNextCall: the single most important thing to work on next call, as a concrete action.
 - objections: at most the 3 most important, real pushback only. "objection" is the owner's exact words and "yourResponse" is the rep's exact words, each a short quote from one transcript line, without any lead-in like "You said". For "mixed" or "fell_flat", "betterLine" is the exact words the rep could have said instead; for "worked", "betterLine" must be an empty string.
 - summary: one or two sentences on the call overall.
@@ -143,16 +142,15 @@ Rules for every suggested line (tryLine, betterLine) and for focusNextCall:
 - Never repeat another suggested line in the report; a category's tryLine must not duplicate an objection's betterLine.`
 
 const quoted = (description: string) => ({ type: 'string', description })
-const evidenceSchema = (statuses: readonly string[]) => ({
+const outcomeSchema = {
   type: 'object',
   additionalProperties: false,
-  required: ['status', 'quote', 'rationale'],
+  required: ['status', 'rationale'],
   properties: {
-    status: { type: 'string', enum: statuses },
-    quote: quoted('Exact words from one transcript line, or empty string'),
+    status: { type: 'string', enum: OUTCOMES },
     rationale: quoted('One sentence'),
   },
-})
+}
 const pointsSchema = {
   type: 'array',
   items: {
@@ -160,8 +158,8 @@ const pointsSchema = {
     additionalProperties: false,
     required: ['point', 'quote'],
     properties: {
-      point: quoted('One specific sentence'),
-      quote: quoted('Exact words from one transcript line, or empty string'),
+      point: quoted('One plain, specific sentence'),
+      quote: quoted('Usually empty; exact words from one transcript line only when they clearly show it'),
     },
   },
 }
@@ -169,7 +167,7 @@ const pointsSchema = {
 const SCHEMA = {
   type: 'object',
   additionalProperties: false,
-  required: ['summary', 'categories', 'outcome', 'qualification', 'whatWorked', 'focusNextCall', 'hiddenCoaching', 'objections'],
+  required: ['summary', 'categories', 'outcome', 'whatWorked', 'whatFellFlat', 'focusNextCall', 'hiddenCoaching', 'objections'],
   properties: {
     summary: quoted('One or two sentences on the call overall'),
     categories: {
@@ -178,20 +176,20 @@ const SCHEMA = {
       items: {
         type: 'object',
         additionalProperties: false,
-        required: ['id', 'rating', 'rationale', 'evidence', 'improvement', 'tryLine'],
+        required: ['id', 'rating', 'rationale', 'whatHappened', 'improvement', 'tryLine'],
         properties: {
           id: { type: 'string', enum: AI_CATEGORIES.map((c) => c.id) },
           rating: { type: 'string', enum: RATINGS },
           rationale: quoted('One sentence'),
-          evidence: quoted("The rep's exact words at the moment that cost them, or empty string"),
-          improvement: quoted('What to do differently, one or two sentences; empty string for "4" or "na"'),
+          whatHappened: quoted('What the owner said, then what the rep did instead; empty string for "4" or "na"'),
+          improvement: quoted('One plain instruction for next time; empty string for "4" or "na"'),
           tryLine: quoted('Exact words to say instead; empty string for "4" or "na"'),
         },
       },
     },
-    outcome: evidenceSchema(OUTCOMES),
-    qualification: evidenceSchema(QUALIFICATIONS),
+    outcome: outcomeSchema,
     whatWorked: { ...pointsSchema, description: 'Up to two strengths' },
+    whatFellFlat: { ...pointsSchema, description: 'Up to three weaknesses, most important first' },
     focusNextCall: quoted('The single most important thing to work on next call'),
     hiddenCoaching: quoted("What the rep found or missed of the owner's hidden situation; empty string if none was given"),
     objections: {
@@ -307,7 +305,7 @@ export const handler = async (event: FunctionUrlEvent) => {
       continue
     }
 
-    const result = buildReport(raw, lines)
+    const result = buildReport(raw, lines, offer)
     // The reveal comes from what session-token sealed, never from the model.
     if (result.ok) return json(200, { report: { ...result.report, hidden } })
     if (result.reason === 'too_short') return json(400, { error: 'The call was too short to grade.' })

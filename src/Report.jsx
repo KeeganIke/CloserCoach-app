@@ -14,12 +14,6 @@ const OUTCOMES = {
   insufficient_information: { label: 'Outcome unclear', tone: 'mixed' },
 }
 
-const QUALIFICATIONS = {
-  qualified: { label: 'Qualified', tone: 'good' },
-  not_qualified: { label: 'Not a fit', tone: 'bad' },
-  insufficient_information: { label: 'Not enough info', tone: 'mixed' },
-}
-
 const RATING_LABELS = { 4: 'Excellent', 3: 'Good', 2: 'Fair', 1: 'Poor', 0: 'Not shown' }
 
 const VERDICTS = {
@@ -86,31 +80,19 @@ function Objections({ items }) {
   )
 }
 
-// Outcome and qualification on one line, with the reasons tucked away.
-function CallResult({ outcome, qualification }) {
-  if (!outcome && !qualification) return null
-  const o = OUTCOMES[outcome?.status] || OUTCOMES.insufficient_information
-  const q = QUALIFICATIONS[qualification?.status] || QUALIFICATIONS.insufficient_information
+// The outcome on one line, with the reason tucked away.
+function CallResult({ outcome }) {
+  if (!outcome) return null
+  const o = OUTCOMES[outcome.status] || OUTCOMES.insufficient_information
   return (
     <section className="call-result">
       <div className="result-chips">
         <span className="result-label">Outcome</span>
         <span className={`tag ${o.tone}`}>{o.label}</span>
-        <span className="result-label">Qualification</span>
-        <span className={`tag ${q.tone}`}>{q.label}</span>
       </div>
       <details className="why">
         <summary>Why? (not part of your score)</summary>
-        {outcome && (
-          <p>
-            <strong>Outcome:</strong> {outcome.rationale} <Quote text={outcome.quote} />
-          </p>
-        )}
-        {qualification && (
-          <p>
-            <strong>Qualification:</strong> {qualification.rationale} <Quote text={qualification.quote} />
-          </p>
-        )}
+        <p>{outcome.rationale}</p>
       </details>
     </section>
   )
@@ -162,7 +144,7 @@ export default function Report({ report, persona }) {
         </div>
       </div>
 
-      <CallResult outcome={report.outcome} qualification={report.qualification} />
+      <CallResult outcome={report.outcome} />
 
       <Reveal hidden={report.hidden} coaching={report.hiddenCoaching} name={persona?.name || 'the owner'} />
 
@@ -203,10 +185,10 @@ export default function Report({ report, persona }) {
                 {c.improvement && (
                   <details className="improve">
                     <summary>How to improve</summary>
-                    {c.evidence && (
+                    {c.whatHappened && (
                       <p>
                         <span className="improve-label">What happened</span>
-                        <span className="evidence">“{c.evidence}”</span>
+                        {c.whatHappened}
                       </p>
                     )}
                     <p>
@@ -227,6 +209,7 @@ export default function Report({ report, persona }) {
       )}
 
       <List title="Strengths" items={report.whatWorked} />
+      <List title="Weaknesses" items={report.whatFellFlat} />
     </div>
   )
 }
