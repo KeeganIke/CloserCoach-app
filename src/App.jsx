@@ -55,8 +55,25 @@ function isRealLine(l) {
   return (l.text.match(/[a-z]/gi) || []).length >= 2
 }
 
+const normalize = (s) => s.toLowerCase().replace(/[^a-z0-9\s]/g, '').replace(/\s+/g, ' ').trim()
+
+// Speaker echo the mic picked up: a short "rep" line that only repeats words from
+// the owner's line just before it ("Right now." after "...right now I'm busy").
+function isEcho(line, i, lines) {
+  if (line.role !== 'user') return false
+  const text = normalize(line.text)
+  if (!text || text.split(' ').length > 6) return false
+  const prev = lines.slice(0, i).reverse().find((l) => l.role === 'assistant')
+  return Boolean(prev && normalize(prev.text).includes(text))
+}
+
+// The lines worth showing and grading.
+function realLines(lines) {
+  return lines.filter(isRealLine).filter((l, i, kept) => !isEcho(l, i, kept))
+}
+
 function Transcript({ lines, persona }) {
-  const shown = lines.filter(isRealLine)
+  const shown = realLines(lines)
   if (shown.length === 0) return null
   return (
     <div className="transcript">
@@ -99,7 +116,7 @@ function App() {
           persona,
           offer,
           hidden,
-          lines: callLines.filter(isRealLine),
+          lines: realLines(callLines),
         }),
       )
       setReportStatus('done')

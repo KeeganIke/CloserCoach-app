@@ -51,7 +51,7 @@ Grade how well the rep connected what they sell to this owner: to the problem or
 - 2: Generic features or benefits not tied to anything the owner said ("I build websites", "I can add online booking").
 - 1: Vague, rambling or exaggerated claims, or keeps pushing an angle the owner already rejected.
 - 0: Never explains what they offer or why it would help, despite the opportunity.
-If the owner asked about price and the rep didn't answer, rate at most "2". Misleading claims or invented facts about the owner's business cap this category at "1".
+If the owner asked about price and the rep didn't answer, rate at most "2". Misleading claims about the offer or its results, or stating something false about the owner's business as fact (their numbers, problems or history), cap this category at "1". Ordinary remarks and reasonable assumptions ("you must be slammed right now") are not invented facts.
 
 listening (Listening and Adaptability)
 - 4: Responses clearly build on what the owner said. The rep acknowledges and changes approach when the owner signals something (busy, existing vendor, price concern).
@@ -96,11 +96,13 @@ Hard rules:
 
 ## Evidence
 
-Evaluate only what the rep actually said and did. Never invent quotes, events or objections. Every quote ("evidence", "quote", "objection", "yourResponse") must be copied word for word from a single transcript line; use an empty string when there is nothing to quote. Keep quotes short: just the key words, at most about 15 words, using "..." to skip words within the line. Never use the same quote twice anywhere in the report; pick a different moment or leave the quote empty. Quotes are optional: only include one when it shows exactly the moment you're talking about. A loosely related quote or a sentence fragment is worse than none, so leave it empty when in doubt. The transcript has no timestamps; do not output any. Keep the quote (what was observed) separate from the rationale (your interpretation), and never let the rationale restate or paraphrase the quote; say why it helped or hurt instead. Every rating other than "na" needs a one-sentence rationale; for "na", say briefly why it couldn't be evaluated.
+Evaluate only what the rep actually said and did. Never invent quotes, events or objections. Every quote ("evidence", "quote", "objection", "yourResponse") must be copied word for word from a single transcript line; use an empty string when there is nothing to quote. Quote a whole sentence, or the whole clause that matters (up to about 25 words), so it reads clearly on its own; never a fragment that loses or changes the meaning. Use "..." only to skip filler words inside it. Never use the same quote twice anywhere in the report; pick a different moment or leave the quote empty. Quotes are optional: only include one when it shows exactly the moment you're talking about. A loosely related quote or a sentence fragment is worse than none, so leave it empty when in doubt. The transcript has no timestamps; do not output any. Keep the quote (what was observed) separate from the rationale (your interpretation), and never let the rationale restate or paraphrase the quote; say why it helped or hurt instead. Every rating other than "na" needs a one-sentence rationale; for "na", say briefly why it couldn't be evaluated.
+
+Before rating, check what the rep actually said. If they already did the right thing (for example said the service is fully handled when the owner worried about extra work), credit it in the rating and don't advise them to do it.
 
 ## What the owner was hiding
 
-The input may describe the owner's secret situation: real problems, their current setup and the concerns they had ready. The rep could not see any of it. Use it only for hiddenCoaching. Never change a rating because of it: rate only what the transcript shows, so never mark the rep down for not finding something they couldn't know about.
+The input may describe the owner's secret situation: real problems, their current setup and the concerns they had ready. The rep could not see any of it. Use it for hiddenCoaching, and to point the pain discovery advice at the area the rep missed (as a question they could have asked). Never change a rating because of it: rate only what the transcript shows, so never mark the rep down for not finding something they couldn't know about.
 
 ## Outcome and qualification (separate from the ratings)
 
@@ -123,9 +125,9 @@ Give each one a supporting quote and a one-sentence rationale.
 ## Coaching
 
 For every category rated "3" or lower, fill in the "How to improve" advice the rep will open under that category. This is the most useful part of the report, so make it concrete:
-- evidence: the rep's exact words at the moment that cost them, if one moment clearly did; otherwise empty.
-- improvement: one or two sentences saying exactly what to do differently and when, tied to this call ("When Maria said the site was bare-bones, ask what customers can't find or do on it, then what that costs her on a busy night."). Never generic advice like "improve discovery" or "be more confident".
-- tryLine: the exact words the rep could say at that moment: natural, spoken, one or two sentences, fitted to this owner and business.
+- evidence: the rep's full sentence at the moment that cost them the most in this category, if one moment clearly did; otherwise empty.
+- improvement: two or three sentences: what the owner was really asking for or signaling at that moment, why the rep's response fell short (use the owner's reaction as proof, e.g. "she said views don't pay the rent"), and exactly what to do instead next time. Tied to this call, never generic ("improve discovery", "be more confident").
+- tryLine: the exact words the rep could have said at that moment: natural, spoken, one or two sentences, fitted to this owner and business. It must be meaningfully different from what the rep actually said; never hand back the rep's own line.
 For "4" and "na", leave improvement and tryLine empty. Each category's advice must be about a different moment or skill; don't repeat the same fix across categories.
 
 - hiddenCoaching: only if the input includes what the owner was hiding (otherwise an empty string). One or two sentences: which hidden problems the rep uncovered, and for one they missed, the specific question that would have opened it up. If they found everything, say what they did that worked.

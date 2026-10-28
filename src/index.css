@@ -489,29 +489,40 @@ body {
   font-style: italic;
 }
 
-.call-result > .muted {
-  margin: -6px 0 12px;
-  font-size: 0.9rem;
+.call-result {
+  margin-bottom: 20px;
 }
 
-.result-row {
-  padding: 12px 16px;
-  border: 1px solid var(--border);
-  border-radius: 12px;
-  margin-bottom: 10px;
+.result-chips {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
 }
 
-.result-row p {
+.result-label {
+  font-size: 0.85rem;
+  font-weight: 600;
+  color: var(--muted);
+}
+
+.result-chips .tag + .result-label {
+  margin-left: 8px;
+}
+
+.why {
+  margin-top: 8px;
+}
+
+.why summary {
+  cursor: pointer;
+  font-size: 0.85rem;
+  color: var(--muted);
+}
+
+.why p {
   margin: 8px 0 0;
   line-height: 1.5;
-}
-
-.result-top {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 12px;
-  font-weight: 600;
 }
 
 .skill.na .skill-score {
@@ -570,4 +581,22 @@ body {
   border-radius: 8px;
   background: var(--accent-soft);
   font-weight: 600;
+}
+
+.improve-label {
+  display: block;
+  font-size: 0.75rem;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: var(--muted);
+  margin-bottom: 2px;
+}
+
+.better-line .improve-label {
+  color: var(--good);
+}
+
+.reveal {
+  margin-top: 8px;
 }

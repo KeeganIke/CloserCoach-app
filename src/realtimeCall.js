@@ -22,13 +22,23 @@ export async function startCall({ tokenUrl, accessCode, offer, onTranscript, onA
     audio: { echoCancellation: true, noiseSuppression: true, autoGainControl: true },
   })
 
+  // The owner can't be interrupted (interrupt_response false), so the mic is switched
+  // off while their voice plays. Otherwise laptop speakers leak into the mic and the
+  // owner hears itself as the rep. It comes back on just after they finish.
+  const micTrack = mic.getTracks()[0]
+  let micTimer
+  const micOnAfter = (ms) => {
+    clearTimeout(micTimer)
+    micTimer = setTimeout(() => (micTrack.enabled = true), ms)
+  }
+
   const pc = new RTCPeerConnection()
   pc.ontrack = (e) => {
     audio.srcObject = e.streams[0]
     // If the browser still blocks it, let the page offer a button that retries play().
     audio.play().catch(() => onAudioBlocked?.(() => audio.play()))
   }
-  pc.addTrack(mic.getTracks()[0])
+  pc.addTrack(micTrack)
 
   // Transcript lines in call order, keyed by conversation item id.
   const lines = []
@@ -65,6 +75,14 @@ export async function startCall({ tokenUrl, accessCode, offer, onTranscript, onA
       case 'response.output_audio_transcript.done':
         upsert(ev.item_id, 'assistant', (l) => (l.text = ev.transcript))
         break
+      case 'output_audio_buffer.started':
+        micTrack.enabled = false
+        micOnAfter(30000) // never leave the rep muted if the stop event goes missing
+        break
+      case 'output_audio_buffer.stopped':
+      case 'output_audio_buffer.cleared':
+        micOnAfter(400)
+        break
       case 'error':
         console.error('Realtime error', ev.error)
         break
@@ -86,6 +104,7 @@ export async function startCall({ tokenUrl, accessCode, offer, onTranscript, onA
   await pc.setRemoteDescription({ type: 'answer', sdp: await sdpRes.text() })
 
   const hangup = () => {
+    clearTimeout(micTimer)
     dc.close()
     pc.close()
     mic.getTracks().forEach((t) => t.stop())

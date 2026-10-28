@@ -51,19 +51,33 @@ function List({ title, items }) {
   )
 }
 
-function Result({ label, value, options }) {
-  if (!value) return null
-  const option = options[value.status] || options.insufficient_information
+// Outcome and qualification on one line, with the reasons tucked away.
+function CallResult({ outcome, qualification }) {
+  if (!outcome && !qualification) return null
+  const o = OUTCOMES[outcome?.status] || OUTCOMES.insufficient_information
+  const q = QUALIFICATIONS[qualification?.status] || QUALIFICATIONS.insufficient_information
   return (
-    <div className="result-row">
-      <div className="result-top">
-        <span className="result-label">{label}</span>
-        <span className={`tag ${option.tone}`}>{option.label}</span>
+    <section className="call-result">
+      <div className="result-chips">
+        <span className="result-label">Outcome</span>
+        <span className={`tag ${o.tone}`}>{o.label}</span>
+        <span className="result-label">Qualification</span>
+        <span className={`tag ${q.tone}`}>{q.label}</span>
       </div>
-      <p className="muted">
-        {value.rationale} <Quote text={value.quote} />
-      </p>
-    </div>
+      <details className="why">
+        <summary>Why? (not part of your score)</summary>
+        {outcome && (
+          <p>
+            <strong>Outcome:</strong> {outcome.rationale} <Quote text={outcome.quote} />
+          </p>
+        )}
+        {qualification && (
+          <p>
+            <strong>Qualification:</strong> {qualification.rationale} <Quote text={qualification.quote} />
+          </p>
+        )}
+      </details>
+    </section>
   )
 }
 
@@ -113,14 +127,7 @@ export default function Report({ report, persona }) {
         </div>
       </div>
 
-      <section className="report-section call-result">
-        <h3>How the call ended</h3>
-        <p className="muted">Not part of your score.</p>
-        <Result label="Outcome" value={report.outcome} options={OUTCOMES} />
-        <Result label="Qualification" value={report.qualification} options={QUALIFICATIONS} />
-      </section>
-
-      <Reveal hidden={report.hidden} coaching={report.hiddenCoaching} name={persona?.name || 'the owner'} />
+      <CallResult outcome={report.outcome} qualification={report.qualification} />
 
       {report.focusNextCall && (
         <section className="focus">
@@ -159,14 +166,18 @@ export default function Report({ report, persona }) {
                   <details className="improve">
                     <summary>How to improve</summary>
                     {c.evidence && (
-                      <p className="muted">
-                        <strong>You said:</strong> “{c.evidence}”
+                      <p>
+                        <span className="improve-label">What happened</span>
+                        <span className="evidence">“{c.evidence}”</span>
                       </p>
                     )}
-                    <p>{c.improvement}</p>
+                    <p>
+                      <span className="improve-label">Next time</span>
+                      {c.improvement}
+                    </p>
                     {c.tryLine && (
                       <p className="better-line">
-                        <strong>Try:</strong> “{c.tryLine}”
+                        <span className="improve-label">Say</span>“{c.tryLine}”
                       </p>
                     )}
                   </details>
@@ -206,6 +217,8 @@ export default function Report({ report, persona }) {
       )}
 
       <List title="Strengths" items={report.whatWorked} />
+
+      <Reveal hidden={report.hidden} coaching={report.hiddenCoaching} name={persona?.name || 'the owner'} />
     </div>
   )
 }
