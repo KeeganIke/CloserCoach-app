@@ -67,7 +67,35 @@ function Result({ label, value, options }) {
   )
 }
 
-export default function Report({ report }) {
+function Reveal({ hidden, coaching, name }) {
+  if (!hidden) return null
+  return (
+    <details className="reveal">
+      <summary>What {name} wasn't telling you</summary>
+      <h4>Real problems</h4>
+      <ul className="report-list">
+        {hidden.problems.map((p, i) => (
+          <li key={i}>{p.charAt(0).toUpperCase() + p.slice(1)}</li>
+        ))}
+      </ul>
+      {hidden.providerWeakness && (
+        <p>
+          Already had someone for this, but it {hidden.providerWeakness}.
+        </p>
+      )}
+      <h4>Concerns they had ready</h4>
+      <ul className="report-list">
+        {hidden.concerns.map((c, i) => (
+          <li key={i}>{c.charAt(0).toUpperCase() + c.slice(1)}</li>
+        ))}
+      </ul>
+      {hidden.personality?.length > 0 && <p className="muted">Personality: {hidden.personality.join(', ')}</p>}
+      {coaching && <p className="reveal-coaching">{coaching}</p>}
+    </details>
+  )
+}
+
+export default function Report({ report, persona }) {
   const score = clamp(report.overallScore, 0, 100)
   const categories = report.categories || []
   const skipped = categories.filter((c) => c.rating === 'na').length
@@ -91,6 +119,8 @@ export default function Report({ report }) {
         <Result label="Outcome" value={report.outcome} options={OUTCOMES} />
         <Result label="Qualification" value={report.qualification} options={QUALIFICATIONS} />
       </section>
+
+      <Reveal hidden={report.hidden} coaching={report.hiddenCoaching} name={persona?.name || 'the owner'} />
 
       {report.focusNextCall && (
         <section className="focus">

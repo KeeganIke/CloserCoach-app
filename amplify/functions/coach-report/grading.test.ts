@@ -45,6 +45,7 @@ function modelOutput(ratings: Ratings = {}, outcome = 'no_meeting') {
     qualification: { status: 'insufficient_information', quote: '', rationale: 'The rep never learned enough.' },
     whatWorked: [{ point: 'You asked permission up front.', quote: 'Do you have thirty seconds?' }],
     focusNextCall: 'Attach a specific time to the email.',
+    hiddenCoaching: '',
     objections: [
       {
         objection: 'Just send me an email.',
@@ -399,4 +400,10 @@ test('categories missing the advice fields are rejected', () => {
   const base = modelOutput()
   const noAdvice = { ...base, categories: base.categories.map(({ improvement, tryLine, ...c }) => c) }
   assert.equal(validateModelOutput(noAdvice).ok, false)
+})
+
+test('hiddenCoaching is required', () => {
+  const { hiddenCoaching, ...rest } = modelOutput()
+  assert.equal(validateModelOutput(rest).ok, false)
+  assert.ok(validateModelOutput({ ...modelOutput(), hiddenCoaching: 'You found the slow nights.' }).ok)
 })

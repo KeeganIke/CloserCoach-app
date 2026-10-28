@@ -75,6 +75,7 @@ function App() {
   const [accessCode, setAccessCode] = useState(readSavedCode)
   const [error, setError] = useState('')
   const [persona, setPersona] = useState(null)
+  const [hidden, setHidden] = useState(null) // sealed owner secret for the report's reveal
   const [lines, setLines] = useState([])
   const [secondsLeft, setSecondsLeft] = useState(MAX_CALL_SECONDS)
   const [retryAudio, setRetryAudio] = useState(null) // set when the browser blocks the owner's audio
@@ -97,6 +98,7 @@ function App() {
           accessCode,
           persona,
           offer,
+          hidden,
           lines: callLines.filter(isRealLine),
         }),
       )
@@ -136,6 +138,7 @@ function App() {
       })
       callRef.current = call
       setPersona(call.persona)
+      setHidden(call.hidden)
       setSecondsLeft(MAX_CALL_SECONDS)
       setPhase('live')
     } catch (err) {
@@ -288,7 +291,7 @@ function App() {
                 </button>
               </div>
             )}
-            {reportStatus === 'done' && report && <Report report={report} />}
+            {reportStatus === 'done' && report && <Report report={report} persona={persona} />}
             <details className="transcript-toggle">
               <summary>Show transcript</summary>
               <Transcript lines={lines} persona={persona} />

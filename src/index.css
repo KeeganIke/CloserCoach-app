@@ -541,3 +541,33 @@ body {
   margin: 8px 0 0;
   line-height: 1.5;
 }
+
+.reveal {
+  padding: 14px 16px;
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  margin-bottom: 24px;
+}
+
+.reveal summary {
+  cursor: pointer;
+  font-weight: 700;
+  color: var(--accent);
+}
+
+.reveal h4 {
+  margin: 14px 0 6px;
+  font-size: 0.9rem;
+}
+
+.reveal p {
+  margin: 10px 0 0;
+  line-height: 1.5;
+}
+
+.reveal .reveal-coaching {
+  padding: 10px 12px;
+  border-radius: 8px;
+  background: var(--accent-soft);
+  font-weight: 600;
+}

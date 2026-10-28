@@ -1,6 +1,6 @@
 // Sends the finished call's transcript to the coach-report function.
 
-export async function fetchReport({ reportUrl, accessCode, persona, offer, lines }) {
+export async function fetchReport({ reportUrl, accessCode, persona, offer, hidden, lines }) {
   if (!reportUrl) throw new Error("The report backend isn't deployed yet.")
   const res = await fetch(reportUrl, {
     method: 'POST',
@@ -9,6 +9,7 @@ export async function fetchReport({ reportUrl, accessCode, persona, offer, lines
       accessCode,
       persona,
       offer,
+      hidden,
       lines: lines.map(({ role, text }) => ({ role, text })),
     }),
   })

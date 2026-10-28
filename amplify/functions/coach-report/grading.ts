@@ -68,6 +68,7 @@ export type ModelOutput = {
   qualification: Evidence
   whatWorked: Point[]
   focusNextCall: string
+  hiddenCoaching: string // about what the owner was hiding; empty when it wasn't known
   objections: Objection[]
 }
 
@@ -165,7 +166,7 @@ function checkPoints(v: unknown, field: string, max: number) {
 export function validateModelOutput(raw: unknown): { ok: true; value: ModelOutput } | { ok: false; error: string } {
   try {
     if (!isObj(raw)) throw new Error('not an object')
-    for (const field of ['summary', 'focusNextCall']) {
+    for (const field of ['summary', 'focusNextCall', 'hiddenCoaching']) {
       if (!isStr(raw[field])) throw new Error(`missing ${field}`)
     }
 
@@ -215,6 +216,7 @@ export function validateModelOutput(raw: unknown): { ok: true; value: ModelOutpu
         qualification: checkEvidence(raw.qualification, QUALIFICATIONS, 'qualification'),
         whatWorked: checkPoints(raw.whatWorked, 'whatWorked', MAX_STRENGTHS),
         focusNextCall: raw.focusNextCall as string,
+        hiddenCoaching: raw.hiddenCoaching as string,
         objections,
       },
     }

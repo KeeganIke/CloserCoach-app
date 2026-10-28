@@ -93,5 +93,6 @@ export async function startCall({ tokenUrl, accessCode, offer, onTranscript, onA
     return lines.map((l) => ({ ...l }))
   }
 
-  return { persona: tokenData.persona, hangup }
+  // hidden is sealed by the backend; only the report function can read it.
+  return { persona: tokenData.persona, hidden: tokenData.hidden, hangup }
 }
