@@ -597,6 +597,6 @@ body {
   color: var(--good);
 }
 
-.reveal {
-  margin-top: 8px;
+.improve .objection {
+  margin: 10px 0 0;
 }

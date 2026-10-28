@@ -51,6 +51,41 @@ function List({ title, items }) {
   )
 }
 
+// The objections the owner raised, shown under the Objection Handling score.
+function Objections({ items }) {
+  if (!items?.length) return null
+  return (
+    <details className="improve">
+      <summary>
+        {items.length === 1 ? 'The objection' : `The ${Math.min(items.length, 3)} objections`} and how you handled{' '}
+        {items.length === 1 ? 'it' : 'them'}
+      </summary>
+      {items.slice(0, 3).map((o, i) => {
+        const verdict = VERDICTS[o.verdict] || VERDICTS.mixed
+        return (
+          <div key={i} className="objection">
+            <div className="objection-top">
+              <p className="objection-quote">“{o.objection}”</p>
+              <span className={`tag ${verdict.tone}`}>{verdict.label}</span>
+            </div>
+            {o.yourResponse && (
+              <p>
+                <strong>You said:</strong> {o.yourResponse.replace(/^you (initially )?said:?\s*/i, '')}
+              </p>
+            )}
+            <p className="muted">{o.why}</p>
+            {o.verdict !== 'worked' && o.betterLine && (
+              <p className="better-line">
+                <span className="improve-label">Say</span>“{o.betterLine}”
+              </p>
+            )}
+          </div>
+        )
+      })}
+    </details>
+  )
+}
+
 // Outcome and qualification on one line, with the reasons tucked away.
 function CallResult({ outcome, qualification }) {
   if (!outcome && !qualification) return null
@@ -129,6 +164,8 @@ export default function Report({ report, persona }) {
 
       <CallResult outcome={report.outcome} qualification={report.qualification} />
 
+      <Reveal hidden={report.hidden} coaching={report.hiddenCoaching} name={persona?.name || 'the owner'} />
+
       {report.focusNextCall && (
         <section className="focus">
           <h3>Focus for your next call</h3>
@@ -162,6 +199,7 @@ export default function Report({ report, persona }) {
                   {na ? 'Not counted. ' : `${RATING_LABELS[c.rating]}. `}
                   {c.rationale}
                 </p>
+                {c.id === 'objection_handling' && <Objections items={report.objections} />}
                 {c.improvement && (
                   <details className="improve">
                     <summary>How to improve</summary>
@@ -188,37 +226,7 @@ export default function Report({ report, persona }) {
         </section>
       )}
 
-      {report.objections?.length > 0 && (
-        <section className="report-section">
-          <h3>Objections</h3>
-          {report.objections.slice(0, 3).map((o, i) => {
-            const verdict = VERDICTS[o.verdict] || VERDICTS.mixed
-            return (
-              <div key={i} className="objection">
-                <div className="objection-top">
-                  <p className="objection-quote">“{o.objection}”</p>
-                  <span className={`tag ${verdict.tone}`}>{verdict.label}</span>
-                </div>
-                {o.yourResponse && (
-                  <p>
-                    <strong>You said:</strong> {o.yourResponse.replace(/^you (initially )?said:?\s*/i, '')}
-                  </p>
-                )}
-                <p className="muted">{o.why}</p>
-                {o.verdict !== 'worked' && o.betterLine && (
-                  <p className="better-line">
-                    <strong>Try instead:</strong> “{o.betterLine}”
-                  </p>
-                )}
-              </div>
-            )
-          })}
-        </section>
-      )}
-
       <List title="Strengths" items={report.whatWorked} />
-
-      <Reveal hidden={report.hidden} coaching={report.hiddenCoaching} name={persona?.name || 'the owner'} />
     </div>
   )
 }
