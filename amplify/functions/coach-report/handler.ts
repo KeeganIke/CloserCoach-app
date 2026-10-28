@@ -24,7 +24,7 @@ ${categoryList}
 
 A seventh category, delivery, is scored by the app from the rep's filler words ("um", "uh"). Do not rate it, and do not count filler words against the rep anywhere else.
 
-Each rating is "4" (Excellent), "3" (Good), "2" (Fair), "1" (Poor), "0" (not demonstrated despite a reasonable opportunity) or "na" (cannot fairly be evaluated). Pick the rating whose description below best fits the evidence. Do not compute points or an overall score; the app does that. Do not give a high rating just because the rep avoided mistakes.
+Each rating is "4" (Excellent), "3" (Good), "2" (Fair), "1" (Poor), "0" (not demonstrated despite a reasonable opportunity) or "na" (cannot fairly be evaluated). Pick the rating whose description below best fits the evidence. Do not compute points or an overall score; the app does that. Do not give a high rating just because the rep avoided mistakes. These are reps practicing: if they did the main thing a category asks for with a minor miss, that is "3", not "2". Save "1" and "0" for clear failures.
 
 Never use "na" because the rep performed poorly. If an opportunity existed and the rep failed to act, rate the behavior. Evaluate the whole call in context; do not hunt for keywords or reward matching a script.
 

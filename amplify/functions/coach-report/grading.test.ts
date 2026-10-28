@@ -76,18 +76,19 @@ test('the rubric adds up to 100 points', () => {
 })
 
 test('weighted scoring and rounding', () => {
-  // opening 4 (15), discovery 3 (15), solution_fit 2 (7.5), listening 3 (7.5),
-  // objection_handling 1 (5), closing 0 (0), delivery 2 (2.5) = 52.5, rounds up to 53
+  // Points per rating: 4 = 100%, 3 = 85%, 2 = 65%, 1 = 35%, 0 = 0%.
+  // opening 4 (15), discovery 3 (17), solution_fit 2 (9.75), listening 3 (8.5),
+  // objection_handling 1 (7), closing 0 (0), delivery 2 (3.25) = 60.5, rounds up to 61
   const { categories, overallScore } = scoreCategories(
     ratingsFor({ opening: '4', discovery: '3', solution_fit: '2', listening: '3', objection_handling: '1', closing: '0', delivery: '2' }),
   )
-  assert.equal(overallScore, 53)
+  assert.equal(overallScore, 61)
   assert.deepEqual(
     categories.map((c) => c.earnedPoints),
-    [15, 15, 7.5, 7.5, 5, 0, 2.5],
+    [15, 17, 9.75, 8.5, 7, 0, 3.25],
   )
-  // All model ratings 3 plus a clean delivery 4: 95 * 3/4 + 5 = 76.25 of 100.
-  assert.equal(grade(modelOutput()).overallScore, 76)
+  // All model ratings 3 plus a clean delivery 4: 95 * 85% + 5 = 85.75 of 100.
+  assert.equal(grade(modelOutput()).overallScore, 86)
 })
 
 test('N/A is left out of both earned and possible points', () => {
@@ -118,9 +119,9 @@ test('strong ratings with no meeting still score high', () => {
 })
 
 test('weak ratings with a booked meeting still score low', () => {
-  // 95 * 1/4 + 5 = 28.75
+  // 95 * 35% + 5 = 38.25
   const report = grade(modelOutput(allRatings('1'), 'meeting_booked'))
-  assert.equal(report.overallScore, 29)
+  assert.equal(report.overallScore, 38)
   assert.equal(report.performanceGrade, 'Poor')
   assert.equal(report.outcome.status, 'meeting_booked')
 })
@@ -337,7 +338,7 @@ test('score band boundaries', () => {
 test('reports carry the fields needed for future rescoring', () => {
   const report = grade(modelOutput({ closing: 'na' }))
   assert.equal(report.rubricVersion, RUBRIC_VERSION)
-  assert.equal(report.rubricVersion, 2)
+  assert.equal(report.rubricVersion, 3)
   assert.equal(typeof report.overallScore, 'number')
   assert.equal(typeof report.performanceGrade, 'string')
   assert.deepEqual(
@@ -406,4 +407,13 @@ test('hiddenCoaching is required', () => {
   const { hiddenCoaching, ...rest } = modelOutput()
   assert.equal(validateModelOutput(rest).ok, false)
   assert.ok(validateModelOutput({ ...modelOutput(), hiddenCoaching: 'You found the slow nights.' }).ok)
+})
+
+test('fair across the board lands in the 60s, good in the 80s', () => {
+  const all = (rating: Rating) => scoreCategories(CATEGORIES.map((c) => ({ id: c.id, rating }))).overallScore
+  assert.equal(all('2'), 65)
+  assert.equal(all('3'), 85)
+  assert.equal(all('4'), 100)
+  assert.equal(all('1'), 35)
+  assert.equal(all('0'), 0)
 })

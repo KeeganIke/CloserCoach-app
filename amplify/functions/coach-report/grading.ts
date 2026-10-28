@@ -2,7 +2,7 @@
 // The model only rates each category; the score, points and grade are computed
 // here so the numbers always add up. No network calls, so it can be unit tested.
 
-export const RUBRIC_VERSION = 2
+export const RUBRIC_VERSION = 3
 
 // Ids are stable; display names and weights can change (bump RUBRIC_VERSION).
 // The model rates every category except delivery, which code scores from filler words.
@@ -20,6 +20,11 @@ export const CATEGORY_IDS = CATEGORIES.map((c) => c.id)
 export const AI_CATEGORIES = CATEGORIES.filter((c) => c.id !== 'delivery')
 export const AI_CATEGORY_IDS = AI_CATEGORIES.map((c) => c.id)
 export const RATINGS = ['4', '3', '2', '1', '0', 'na'] as const
+
+// Share of a category's points each rating earns. Not a straight line: "Fair" is
+// worth 65%, so a practicing rep who is fair across the board lands in the 60s,
+// not at 50. Kept in whole percents so sums stay exact.
+export const RATING_PERCENT: Record<Exclude<Rating, 'na'>, number> = { 4: 100, 3: 85, 2: 65, 1: 35, 0: 0 }
 
 // Initial coaching benchmarks, highest first. A score gets the first band it reaches.
 export const SCORE_BANDS = [
@@ -126,20 +131,20 @@ export function performanceGrade(score: number) {
 
 // Weighted score from the ratings. N/A categories count toward neither the
 // earned points nor the possible points. Returns null when everything is N/A.
-// Sums are kept in whole quarter-points so 57.5 rounds to 58, not 57.4999… to 57.
+// Sums are kept in whole weight-percents so 57.5 rounds to 58, not 57.4999… to 57.
 export function scoreCategories(ratings: { id: CategoryId; rating: Rating }[]) {
-  let earnedQuarters = 0
-  let possibleQuarters = 0
+  let earned = 0
+  let possible = 0
   const categories = CATEGORIES.map((c) => {
     const rating = ratings.find((r) => r.id === c.id)?.rating ?? 'na'
-    const earnedPoints = rating === 'na' ? null : (c.weight * Number(rating)) / 4
+    const earnedPoints = rating === 'na' ? null : (c.weight * RATING_PERCENT[rating]) / 100
     if (rating !== 'na') {
-      earnedQuarters += c.weight * Number(rating)
-      possibleQuarters += c.weight * 4
+      earned += c.weight * RATING_PERCENT[rating]
+      possible += c.weight * 100
     }
     return { id: c.id, name: c.name, weight: c.weight, maxPoints: c.weight, rating, earnedPoints }
   })
-  const overallScore = possibleQuarters ? Math.round((earnedQuarters * 100) / possibleQuarters) : null
+  const overallScore = possible ? Math.round((earned * 100) / possible) : null
   return { categories, overallScore }
 }
 
