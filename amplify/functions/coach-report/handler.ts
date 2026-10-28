@@ -24,7 +24,7 @@ ${categoryList}
 
 A seventh category, delivery, is scored by the app from the rep's filler words ("um", "uh"). Do not rate it, and do not count filler words against the rep anywhere else.
 
-Each rating is "4" (Excellent), "3" (Good), "2" (Fair), "1" (Poor), "0" (not demonstrated despite a reasonable opportunity) or "na" (cannot fairly be evaluated). Pick the rating whose description below best fits the evidence. Do not compute points or an overall score; the app does that. Do not give a high rating just because the rep avoided mistakes. These are reps practicing: if they did the main thing a category asks for with a minor miss, that is "3", not "2". Save "1" and "0" for clear failures.
+Each rating is "4" (Excellent), "3" (Good), "2" (Fair), "1" (Poor), "0" (not demonstrated despite a reasonable opportunity) or "na" (cannot fairly be evaluated). Pick the rating whose description below best fits the evidence. Do not compute points or an overall score; the app does that. Do not give a high rating just because the rep avoided mistakes. These are reps practicing: if they did the main thing a category asks for with a minor miss, that is "3", not "2". Save "1" and "0" for clear failures. "4" means no meaningful weakness in that category; one clear miss makes it "3".
 
 Never use "na" because the rep performed poorly. If an opportunity existed and the rep failed to act, rate the behavior. Evaluate the whole call in context; do not hunt for keywords or reward matching a script.
 
@@ -59,7 +59,7 @@ listening (Listening and Adaptability)
 - 2: Acknowledges the owner but keeps running their own script; adapts inconsistently.
 - 1: Repeatedly ignores or talks past what the owner said, or repeats the same pitch without acknowledging the response.
 - 0: No moment where the rep responds to anything the owner said, despite the opportunity.
-Do not penalize the rep just for talking more than the owner, and never say the rep interrupted unless the transcript clearly shows it.
+Do not penalize the rep just for talking more than the owner, and never say the rep interrupted unless the transcript clearly shows it. But long monologues, or not answering the owner's direct question right away (making them ask again), cap listening at "3".
 
 objection_handling (Objection Handling)
 An objection is real pushback: "not interested", "we already have someone", "too expensive", "I'm busy", "no meeting", "how did you get this number". Brush-offs like "send me an email", "send me some info" or "call me later" ARE objections and must be evaluated if raised. Interest with a condition ("maybe, if it actually works") is not an objection, and neither are the owner's instructions or preferences ("keep it short", "don't put a meeting request in the email"). Merge repeats of the same objection. Weight the most important objection most heavily. Different objections need different responses: "we already have someone", "too expensive" and "not interested" are not the same. Grade the quality of the response, not whether the owner gave in; do not penalize failing to overcome an objection that wasn't realistically recoverable.
@@ -126,7 +126,7 @@ For every category rated "3" or lower, fill in the "How to improve" advice the r
 - whatHappened: one or two plain sentences telling the story of the moment that cost the most: first what the owner said or asked, then what the rep did instead. Example: "Tom asked you to explain what you're offering. Instead of answering, you said you weren't there to waste his time and asked another question, so he had to ask again."
 - improvement: one short, plain instruction for next time, in the second person, starting with "When..." or a verb. Example: "When an owner asks what you're selling, tell them in one sentence before asking anything else." Never generic ("improve discovery", "be more confident").
 - tryLine: the exact words the rep could have said at that moment: natural, spoken, one or two sentences, fitted to this owner and business. It must be meaningfully different from what the rep actually said; never hand back the rep's own line.
-For "4" and "na", leave whatHappened, improvement and tryLine empty. Each category's advice must be about a different moment or skill; don't repeat the same fix across categories.
+For "4" and "na", and always for objection_handling (its objection cards carry the advice), leave whatHappened, improvement and tryLine empty. Each category's advice must be about a different moment or skill; don't repeat the same fix across categories.
 
 - hiddenCoaching: only if the input includes what the owner was hiding (otherwise an empty string). One or two sentences: which hidden problems the rep uncovered, and for one they missed, the specific question that would have opened it up. If they found everything, say what they did that worked.
 - whatWorked: up to two specific strengths, one plain sentence each. Do not invent praise to fill the slots; an empty list is fine.

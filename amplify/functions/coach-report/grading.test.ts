@@ -77,19 +77,19 @@ test('the rubric adds up to 100 points', () => {
 })
 
 test('weighted scoring and rounding', () => {
-  // Points per rating: 4 = 100%, 3 = 85%, 2 = 65%, 1 = 35%, 0 = 0%.
-  // opening 4 (15), discovery 3 (17), solution_fit 2 (9.75), listening 3 (8.5),
-  // objection_handling 1 (7), closing 0 (0), delivery 2 (3.25) = 60.5, rounds up to 61
+  // Points per rating: 4 = 100%, 3 = 80%, 2 = 60%, 1 = 30%, 0 = 0%.
+  // opening 4 (15), discovery 3 (16), solution_fit 2 (9), listening 3 (8),
+  // objection_handling 1 (6), closing 0 (0), delivery 1 (1.5) = 55.5, rounds up to 56
   const { categories, overallScore } = scoreCategories(
-    ratingsFor({ opening: '4', discovery: '3', solution_fit: '2', listening: '3', objection_handling: '1', closing: '0', delivery: '2' }),
+    ratingsFor({ opening: '4', discovery: '3', solution_fit: '2', listening: '3', objection_handling: '1', closing: '0', delivery: '1' }),
   )
-  assert.equal(overallScore, 61)
+  assert.equal(overallScore, 56)
   assert.deepEqual(
     categories.map((c) => c.earnedPoints),
-    [15, 17, 9.75, 8.5, 7, 0, 3.25],
+    [15, 16, 9, 8, 6, 0, 1.5],
   )
-  // All model ratings 3 plus a clean delivery 4: 95 * 85% + 5 = 85.75 of 100.
-  assert.equal(grade(modelOutput()).overallScore, 86)
+  // All model ratings 3 plus a clean delivery 4: 95 * 80% + 5 = 81 of 100.
+  assert.equal(grade(modelOutput()).overallScore, 81)
 })
 
 test('N/A is left out of both earned and possible points', () => {
@@ -120,9 +120,9 @@ test('strong ratings with no meeting still score high', () => {
 })
 
 test('weak ratings with a booked meeting still score low', () => {
-  // 95 * 35% + 5 = 38.25
+  // 95 * 30% + 5 = 33.5
   const report = grade(modelOutput(allRatings('1'), 'meeting_booked'))
-  assert.equal(report.overallScore, 38)
+  assert.equal(report.overallScore, 34)
   assert.equal(report.performanceGrade, 'Poor')
   assert.equal(report.outcome.status, 'meeting_booked')
 })
@@ -354,7 +354,7 @@ test('score band boundaries', () => {
 test('reports carry the fields needed for future rescoring', () => {
   const report = grade(modelOutput({ closing: 'na' }))
   assert.equal(report.rubricVersion, RUBRIC_VERSION)
-  assert.equal(report.rubricVersion, 3)
+  assert.equal(report.rubricVersion, 4)
   assert.equal(typeof report.overallScore, 'number')
   assert.equal(typeof report.performanceGrade, 'string')
   assert.deepEqual(
@@ -428,11 +428,19 @@ test('hiddenCoaching is required', () => {
   assert.ok(validateModelOutput({ ...modelOutput(), hiddenCoaching: 'You found the slow nights.' }).ok)
 })
 
-test('fair across the board lands in the 60s, good in the 80s', () => {
+test('fair across the board lands at 60, good at 80', () => {
   const all = (rating: Rating) => scoreCategories(CATEGORIES.map((c) => ({ id: c.id, rating }))).overallScore
-  assert.equal(all('2'), 65)
-  assert.equal(all('3'), 85)
+  assert.equal(all('2'), 60)
+  assert.equal(all('3'), 80)
   assert.equal(all('4'), 100)
-  assert.equal(all('1'), 35)
+  assert.equal(all('1'), 30)
   assert.equal(all('0'), 0)
+})
+
+test('objection handling never gets its own "How to improve"', () => {
+  const report = grade(modelOutput({ objection_handling: '2' }))
+  const oh = report.categories.find((c) => c.id === 'objection_handling')!
+  assert.equal(oh.whatHappened, '')
+  assert.equal(oh.improvement, '')
+  assert.equal(oh.tryLine, '')
 })

@@ -2,7 +2,7 @@
 // The model only rates each category; the score, points and grade are computed
 // here so the numbers always add up. No network calls, so it can be unit tested.
 
-export const RUBRIC_VERSION = 3
+export const RUBRIC_VERSION = 4
 
 // Ids are stable; display names and weights can change (bump RUBRIC_VERSION).
 // The model rates every category except delivery, which code scores from filler words.
@@ -22,9 +22,9 @@ export const AI_CATEGORY_IDS = AI_CATEGORIES.map((c) => c.id)
 export const RATINGS = ['4', '3', '2', '1', '0', 'na'] as const
 
 // Share of a category's points each rating earns. Not a straight line: "Fair" is
-// worth 65%, so a practicing rep who is fair across the board lands in the 60s,
-// not at 50. Kept in whole percents so sums stay exact.
-export const RATING_PERCENT: Record<Exclude<Rating, 'na'>, number> = { 4: 100, 3: 85, 2: 65, 1: 35, 0: 0 }
+// worth 60%, so a practicing rep who is fair across the board lands at 60, not 50.
+// Kept in whole percents so sums stay exact.
+export const RATING_PERCENT: Record<Exclude<Rating, 'na'>, number> = { 4: 100, 3: 80, 2: 60, 1: 30, 0: 0 }
 
 // Initial coaching benchmarks, highest first. A score gets the first band it reaches.
 export const SCORE_BANDS = [
@@ -184,8 +184,9 @@ export function validateModelOutput(raw: unknown): { ok: true; value: ModelOutpu
       if (!oneOf(RATINGS, c.rating)) throw new Error(`invalid rating for ${c.id}`)
       if (![c.rationale, c.whatHappened, c.improvement, c.tryLine].every(isStr)) throw new Error(`missing fields for ${c.id}`)
       if (c.rating !== 'na' && !(c.rationale as string).trim()) throw new Error(`missing rationale for ${c.id}`)
-      // No advice at full marks or N/A.
-      const advise = c.rating !== '4' && c.rating !== 'na'
+      // No advice at full marks or N/A, or for objection handling, whose objection
+      // cards already carry a better line for each objection.
+      const advise = c.rating !== '4' && c.rating !== 'na' && c.id !== 'objection_handling'
       return {
         id: c.id,
         rating: c.rating,
