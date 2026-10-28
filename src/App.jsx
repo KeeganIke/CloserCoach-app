@@ -72,15 +72,23 @@ function realLines(lines) {
   return lines.filter(isRealLine).filter((l, i, kept) => !isEcho(l, i, kept))
 }
 
+// What the page shows: real lines, plus a "…" for the rep's line while their words
+// are still being transcribed, so the owner's reply never gets pushed down by it.
+function shownLines(lines) {
+  return lines
+    .filter((l) => (l.role === 'user' && l.pending) || isRealLine(l))
+    .filter((l, i, kept) => !isEcho(l, i, kept))
+}
+
 function Transcript({ lines, persona }) {
-  const shown = realLines(lines)
+  const shown = shownLines(lines)
   if (shown.length === 0) return null
   return (
     <div className="transcript">
       {shown.map((l) => (
-        <p key={l.id} className={`line ${l.role}`}>
+        <p key={l.id} className={`line ${l.role}${l.pending ? ' pending' : ''}`}>
           <span className="speaker">{l.role === 'user' ? 'You' : persona?.name || 'Owner'}</span>
-          {l.text}
+          {l.pending ? '…' : l.text}
         </p>
       ))}
     </div>
@@ -182,8 +190,14 @@ function App() {
   }
 
   // Follow new transcript lines during a call, unless the rep scrolled up to reread.
+  // Scrolls smoothly, and only when the page actually grew (a new line or a wrapped
+  // line), not on every word the owner says.
+  const lastHeight = useRef(0)
+  const autoScrolling = useRef(false)
+  const autoScrollTimer = useRef(null)
   useEffect(() => {
     const onScroll = () => {
+      if (autoScrolling.current) return // our own glide, not the rep scrolling
       const fromBottom = document.documentElement.scrollHeight - (window.innerHeight + window.scrollY)
       stickToBottom.current = fromBottom < 120
     }
@@ -192,9 +206,14 @@ function App() {
   }, [])
 
   useEffect(() => {
-    if (phase === 'live' && stickToBottom.current) {
-      window.scrollTo({ top: document.documentElement.scrollHeight })
-    }
+    if (phase !== 'live' || !stickToBottom.current) return
+    const height = document.documentElement.scrollHeight
+    if (height === lastHeight.current) return
+    lastHeight.current = height
+    autoScrolling.current = true
+    window.scrollTo({ top: height, behavior: 'smooth' })
+    clearTimeout(autoScrollTimer.current)
+    autoScrollTimer.current = setTimeout(() => (autoScrolling.current = false), 500)
   }, [lines, phase])
 
   // Hang up if the page is closed mid-call.

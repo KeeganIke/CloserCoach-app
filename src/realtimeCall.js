@@ -45,7 +45,9 @@ export async function startCall({ tokenUrl, accessCode, offer, onTranscript, onA
   const upsert = (id, role, update) => {
     let line = lines.find((l) => l.id === id)
     if (!line) {
-      line = { id, role, text: '' }
+      // A rep line is "pending" from the moment they stop talking until their words are
+      // transcribed, so the page can hold its place instead of inserting it late.
+      line = { id, role, text: '', pending: role === 'user' }
       lines.push(line)
     }
     update(line)
@@ -67,7 +69,13 @@ export async function startCall({ tokenUrl, accessCode, offer, onTranscript, onA
         }
         break
       case 'conversation.item.input_audio_transcription.completed':
-        upsert(ev.item_id, 'user', (l) => (l.text = ev.transcript.trim()))
+        upsert(ev.item_id, 'user', (l) => {
+          l.text = ev.transcript.trim()
+          l.pending = false
+        })
+        break
+      case 'conversation.item.input_audio_transcription.failed':
+        upsert(ev.item_id, 'user', (l) => (l.pending = false))
         break
       case 'response.output_audio_transcript.delta':
         upsert(ev.item_id, 'assistant', (l) => (l.text += ev.delta))

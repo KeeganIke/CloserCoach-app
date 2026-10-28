@@ -185,6 +185,10 @@ body {
   background: var(--user-bg);
 }
 
+.line.pending {
+  color: var(--muted);
+}
+
 .speaker {
   display: block;
   font-size: 0.75rem;
