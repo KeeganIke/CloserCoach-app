@@ -172,7 +172,7 @@ test('invalid model output is rejected', () => {
     ['seven categories', { ...base, categories: [...base.categories, { ...base.categories[0], id: 'delivery' }] }],
     ['unknown outcome', { ...base, outcome: { ...base.outcome, status: 'maybe_later' } }],
     ['missing whatFellFlat', { ...base, whatFellFlat: undefined }],
-    ['outcome without rationale', { ...base, outcome: { status: 'no_meeting' } }],
+    ['outcome without status', { ...base, outcome: {} }],
     ['missing summary', { ...base, summary: undefined }],
     ['missing focusNextCall', { ...base, focusNextCall: undefined }],
     ['missing whatWorked', { ...base, whatWorked: undefined }],
@@ -229,10 +229,10 @@ test('objections the owner never said are dropped', () => {
   assert.equal(report.objections[0].yourResponse, 'What would you want to see in it?')
 })
 
-test('an objection response that is not in the transcript is blanked', () => {
+test('an objection response can be a paraphrase of how the rep handled it', () => {
   const raw = modelOutput()
-  raw.objections[0].yourResponse = 'Sure, I will send it right over.'
-  assert.equal(grade(raw).objections[0].yourResponse, '')
+  raw.objections[0].yourResponse = 'You agreed to send it, then asked what would make it worth opening.'
+  assert.equal(grade(raw).objections[0].yourResponse, 'You agreed to send it, then asked what would make it worth opening.')
 })
 
 test('each quote is shown only once', () => {
@@ -241,8 +241,8 @@ test('each quote is shown only once', () => {
     whatWorked: [{ point: 'Permission.', quote: 'Do you have thirty seconds?' }],
     whatFellFlat: [
       { point: 'Repeats a strength.', quote: 'Do you have thirty seconds?' },
-      { point: 'Repeats an objection response.', quote: 'What would you want to see in it?' },
       { point: 'New.', quote: 'How are most new customers finding your shop right now?' },
+      { point: 'Repeats the one above.', quote: 'how are most new customers finding your shop' },
     ],
   })
   assert.ok(checked.ok)
@@ -250,9 +250,8 @@ test('each quote is shown only once', () => {
   assert.equal(out.whatWorked[0].quote, 'Do you have thirty seconds?')
   assert.deepEqual(
     out.whatFellFlat.map((p) => p.quote),
-    ['', '', 'How are most new customers finding your shop right now?'],
+    ['', 'How are most new customers finding your shop right now?', ''],
   )
-  assert.equal(out.objections[0].yourResponse, 'What would you want to see in it?')
 })
 
 test('suggested lines that make up deal terms are dropped; terms from the offer or the rep stay', () => {

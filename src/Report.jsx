@@ -64,7 +64,7 @@ function Objections({ items }) {
             </div>
             {o.yourResponse && (
               <p>
-                <strong>You said:</strong> {o.yourResponse.replace(/^you (initially )?said:?\s*/i, '')}
+                <strong>How you handled it:</strong> {o.yourResponse.replace(/^you (initially )?said:?\s*/i, '')}
               </p>
             )}
             <p className="muted">{o.why}</p>
@@ -80,7 +80,7 @@ function Objections({ items }) {
   )
 }
 
-// The outcome on one line, with the reason tucked away.
+// How the call ended, as one tag.
 function CallResult({ outcome }) {
   if (!outcome) return null
   const o = OUTCOMES[outcome.status] || OUTCOMES.insufficient_information
@@ -90,10 +90,6 @@ function CallResult({ outcome }) {
         <span className="result-label">Outcome</span>
         <span className={`tag ${o.tone}`}>{o.label}</span>
       </div>
-      <details className="why">
-        <summary>Why? (not part of your score)</summary>
-        <p>{outcome.rationale}</p>
-      </details>
     </section>
   )
 }

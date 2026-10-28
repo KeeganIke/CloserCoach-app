@@ -98,7 +98,7 @@ Hard rules:
 
 Evaluate only what the rep actually said and did. Never invent quotes, events or objections. The transcript has no timestamps; do not output any. Every rating other than "na" needs a one-sentence rationale; for "na", say briefly why it couldn't be evaluated.
 
-Quotes are rare. Only the objection cards always quote ("objection" and "yourResponse"). Everywhere else, leave "quote" empty unless the exact words are clearly the best way to show the moment, such as a great line worth repeating. When you do quote, copy a whole sentence word for word from one transcript line, and never use the same quote twice.
+Quotes are rare. Only the owner's words in each objection card ("objection") are always an exact quote. Everywhere else, leave "quote" empty unless the exact words are clearly the best way to show the moment, such as a great line worth repeating. When you do quote, copy a whole sentence word for word from one transcript line, and never use the same quote twice.
 
 Write like a coach talking to the rep: plain, everyday words. No report-speak like "established referral traffic" or "demonstrated a website need".
 
@@ -118,8 +118,6 @@ Outcome:
 - insufficient_information: the transcript does not establish the outcome (for example it cuts off mid-conversation).
 Vague interest, an unanswered meeting request, or a request for information is never meeting_booked.
 
-Give the outcome a one-sentence rationale.
-
 ## Coaching
 
 For every category rated "3" or lower, fill in the "How to improve" advice the rep will open under that category. This is the most useful part of the report, so make it concrete and easy to read:
@@ -132,7 +130,7 @@ For "4" and "na", and always for objection_handling (its objection cards carry t
 - whatWorked: up to two specific strengths, one plain sentence each. Do not invent praise to fill the slots; an empty list is fine.
 - whatFellFlat: up to three weaknesses, most important first, one plain sentence each. A quick summary of the biggest misses; don't copy the category advice word for word.
 - focusNextCall: the single most important thing to work on next call, as a concrete action.
-- objections: at most the 3 most important, real pushback only. "objection" is the owner's exact words and "yourResponse" is the rep's exact words, each a short quote from one transcript line, without any lead-in like "You said". For "mixed" or "fell_flat", "betterLine" is the exact words the rep could have said instead; for "worked", "betterLine" must be an empty string.
+- objections: at most the 3 most important, real pushback only. "objection" is the owner's exact words, a short quote from one transcript line. "yourResponse" is one or two plain sentences summarizing how the rep actually handled it across their whole answer (paraphrase is fine, especially when they rambled), with no lead-in like "You said". For "mixed" or "fell_flat", "betterLine" is the exact words the rep could have said instead; for "worked", "betterLine" must be an empty string.
 - summary: one or two sentences on the call overall.
 
 Rules for every suggested line (tryLine, betterLine) and for focusNextCall:
@@ -145,10 +143,9 @@ const quoted = (description: string) => ({ type: 'string', description })
 const outcomeSchema = {
   type: 'object',
   additionalProperties: false,
-  required: ['status', 'rationale'],
+  required: ['status'],
   properties: {
     status: { type: 'string', enum: OUTCOMES },
-    rationale: quoted('One sentence'),
   },
 }
 const pointsSchema = {
@@ -200,7 +197,7 @@ const SCHEMA = {
         required: ['objection', 'yourResponse', 'verdict', 'why', 'betterLine'],
         properties: {
           objection: quoted("The owner's exact words from one transcript line"),
-          yourResponse: quoted("The rep's exact words from one transcript line, or empty string"),
+          yourResponse: quoted('How the rep handled it, summarized in one or two plain sentences'),
           verdict: { type: 'string', enum: VERDICTS },
           why: quoted('One or two sentences'),
           betterLine: quoted('Exact words the rep could say instead; empty string when verdict is "worked"'),

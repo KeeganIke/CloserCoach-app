@@ -59,8 +59,10 @@ export type CategoryId = (typeof CATEGORIES)[number]['id']
 export type AiCategoryId = Exclude<CategoryId, 'delivery'>
 export type Rating = (typeof RATINGS)[number]
 export type Line = { role: 'user' | 'assistant'; text: string }
-type Outcome = { status: string; rationale: string }
+type Outcome = { status: string }
 type Point = { point: string; quote: string } // quote is optional (empty) and rarely used
+// objection is the owner's exact words; yourResponse is a plain summary of how the
+// rep handled it (paraphrase is fine, since a rambling answer has no single quote).
 type Objection = { objection: string; yourResponse: string; verdict: string; why: string; betterLine: string }
 // The "How to improve" advice, empty at full marks or N/A: whatHappened tells the
 // moment in plain words, improvement is the one-line "next time", tryLine what to say.
@@ -154,8 +156,8 @@ const isStr = (v: unknown): v is string => typeof v === 'string'
 const oneOf = <T extends string>(list: readonly T[], v: unknown): v is T => list.includes(v as T)
 
 function checkOutcome(v: unknown) {
-  if (!isObj(v) || !oneOf(OUTCOMES, v.status) || !isStr(v.rationale)) throw new Error('invalid outcome')
-  return { status: v.status, rationale: v.rationale }
+  if (!isObj(v) || !oneOf(OUTCOMES, v.status)) throw new Error('invalid outcome')
+  return { status: v.status }
 }
 
 function checkPoints(v: unknown, field: string, max: number) {
@@ -256,8 +258,8 @@ export function quoteInTranscript(quote: string, lines: Line[]) {
   })
 }
 
-// Blanks out any quote that isn't in the transcript and drops objections the
-// owner never actually said. Ratings stay as they are.
+// Blanks out any strength or weakness quote that isn't in the transcript and drops
+// objections the owner never actually said. Ratings stay as they are.
 export function verifyQuotes(output: ModelOutput, lines: Line[]): ModelOutput {
   const keep = (q: string) => (quoteInTranscript(q, lines) ? q : '')
   const keepPoints = (points: Point[]) => points.map((p) => ({ ...p, quote: keep(p.quote) }))
@@ -265,16 +267,14 @@ export function verifyQuotes(output: ModelOutput, lines: Line[]): ModelOutput {
     ...output,
     whatWorked: keepPoints(output.whatWorked),
     whatFellFlat: keepPoints(output.whatFellFlat),
-    objections: output.objections
-      .filter((o) => quoteInTranscript(o.objection, lines))
-      .map((o) => ({ ...o, yourResponse: keep(o.yourResponse) })),
+    objections: output.objections.filter((o) => quoteInTranscript(o.objection, lines)),
   }
 }
 
-// Shows each quote once: a strength or weakness quote that repeats an objection
-// response (or an earlier quote) is blanked.
+// Shows each quote once: a strength or weakness quote that repeats an earlier one
+// is blanked.
 export function dropRepeatedQuotes(output: ModelOutput): ModelOutput {
-  const seen = output.objections.map((o) => normalizeText(o.yourResponse)).filter(Boolean)
+  const seen: string[] = []
   const once = (q: string) => {
     const n = normalizeText(q)
     if (!n || seen.some((s) => s.includes(n) || n.includes(s))) return ''

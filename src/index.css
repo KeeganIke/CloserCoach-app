@@ -510,21 +510,6 @@ body {
   margin-left: 8px;
 }
 
-.why {
-  margin-top: 8px;
-}
-
-.why summary {
-  cursor: pointer;
-  font-size: 0.85rem;
-  color: var(--muted);
-}
-
-.why p {
-  margin: 8px 0 0;
-  line-height: 1.5;
-}
-
 .skill.na .skill-score {
   color: var(--muted);
 }
