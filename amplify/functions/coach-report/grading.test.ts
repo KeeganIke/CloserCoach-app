@@ -38,13 +38,13 @@ function modelOutput(ratings: Ratings = {}, outcome = 'no_meeting') {
       rating: ratings[c.id] ?? '3',
       rationale: `Rationale for ${c.id}.`,
       evidence: 'Do you have thirty seconds?',
+      improvement: `Improve ${c.id}.`,
+      tryLine: `Try line for ${c.id}.`,
     })),
     outcome: { status: outcome, quote: "I've got to go.", rationale: 'Dave ended the call.' },
     qualification: { status: 'insufficient_information', quote: '', rationale: 'The rep never learned enough.' },
     whatWorked: [{ point: 'You asked permission up front.', quote: 'Do you have thirty seconds?' }],
-    whatFellFlat: [{ point: 'You never set a follow-up time.', quote: 'What would you want to see in it' }],
     focusNextCall: 'Attach a specific time to the email.',
-    suggestedLine: "I'll send it now; can we put ten minutes on Thursday to go over it?",
     objections: [
       {
         objection: 'Just send me an email.',
@@ -191,14 +191,16 @@ test('quote verification removes a fabricated quote and keeps a real one', () =>
       { point: 'Real.', quote: 'do you have THIRTY seconds' },
       { point: 'Fake.', quote: 'I guarantee you will double your revenue' },
     ],
-    whatFellFlat: [{ point: 'Shortened.', quote: 'Happy to... what would you want to see' }],
   })
   assert.ok(checked.ok)
   const verified = verifyQuotes(checked.value, lines)
   assert.equal(verified.whatWorked[0].quote, 'do you have THIRTY seconds')
   assert.equal(verified.whatWorked[1].quote, '')
   assert.equal(verified.whatWorked[1].point, 'Fake.')
-  assert.equal(verified.whatFellFlat[0].quote, 'Happy to... what would you want to see')
+
+  // A shortened quote counts when each piece is in one line, in order.
+  const shortened = { ...checked.value, whatWorked: [{ point: 'Shortened.', quote: 'Happy to... what would you want to see' }] }
+  assert.equal(verifyQuotes(shortened, lines).whatWorked[0].quote, 'Happy to... what would you want to see')
 
   // A fabricated category quote is removed without changing the rating.
   const raw = modelOutput(allRatings('4'))
@@ -235,13 +237,11 @@ test('each quote is shown only once', () => {
   const checked = validateModelOutput({
     ...modelOutput(),
     whatWorked: [{ point: 'Permission.', quote: 'Do you have thirty seconds?' }],
-    whatFellFlat: [{ point: 'Email.', quote: 'what would you want to see in it' }],
     outcome: { status: 'no_meeting', quote: "Prices. I've got to go.", rationale: 'x' },
   })
   assert.ok(checked.ok)
   const out = dropRepeatedQuotes(checked.value)
   assert.equal(out.whatWorked[0].quote, 'Do you have thirty seconds?')
-  assert.equal(out.whatFellFlat[0].quote, 'what would you want to see in it')
   assert.ok(out.categories.every((c) => c.evidence === ''))
   assert.equal(out.outcome.quote, "Prices. I've got to go.")
   assert.equal(out.objections[0].yourResponse, 'What would you want to see in it?')
@@ -250,7 +250,6 @@ test('each quote is shown only once', () => {
 test('a category quote that repeats an objection response is blanked; distinct ones stay', () => {
   const raw = modelOutput()
   raw.whatWorked = []
-  raw.whatFellFlat = []
   raw.categories[0].evidence = "Hi Dave, it's Sam with Local Lift."
   raw.categories[1].evidence = 'What would you want to see in it?'
   raw.categories[2].evidence = 'How are most new customers finding your shop right now?'
@@ -364,8 +363,40 @@ test('weights come from code, not from the model', () => {
 
 test('extra items are trimmed and a "worked" objection has no better line', () => {
   const p = { point: 'x', quote: '' }
-  const report = grade({ ...modelOutput(), whatWorked: [p, p, p], whatFellFlat: [p, p, p, p] })
+  const report = grade({ ...modelOutput(), whatWorked: [p, p, p] })
   assert.equal(report.whatWorked.length, 2)
-  assert.equal(report.whatFellFlat.length, 3)
   assert.equal(report.objections[0].betterLine, '')
+})
+
+test('"How to improve" advice only appears below full marks', () => {
+  const report = grade(modelOutput({ opening: '4', discovery: '2', closing: 'na' }))
+  const byId = (id: string) => report.categories.find((c) => c.id === id)!
+  assert.equal(byId('opening').improvement, '')
+  assert.equal(byId('opening').tryLine, '')
+  assert.equal(byId('closing').improvement, '')
+  assert.equal(byId('discovery').improvement, 'Improve discovery.')
+  assert.equal(byId('discovery').tryLine, 'Try line for discovery.')
+  // Clean delivery needs no advice.
+  assert.equal(byId('delivery').improvement, '')
+})
+
+test('delivery advice names the fillers used', () => {
+  const report = grade(modelOutput(), [
+    lines[0],
+    { role: 'user', text: "Um, hi Dave, it's Sam with, you know, Local Lift. Do you, uh, have thirty seconds?" },
+    lines[2],
+    { role: 'user', text: 'Um, how are most new customers finding your shop right now?' },
+    lines[4],
+    { role: 'user', text: "Happy to. What would you want to see in it so it's worth your time?" },
+    lines[6],
+  ])
+  const delivery = report.categories.find((c) => c.id === 'delivery')!
+  assert.notEqual(delivery.rating, '4')
+  assert.match(delivery.improvement, /"um" and "uh" and "you know"/)
+})
+
+test('categories missing the advice fields are rejected', () => {
+  const base = modelOutput()
+  const noAdvice = { ...base, categories: base.categories.map(({ improvement, tryLine, ...c }) => c) }
+  assert.equal(validateModelOutput(noAdvice).ok, false)
 })

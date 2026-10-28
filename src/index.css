@@ -518,14 +518,26 @@ body {
   color: var(--muted);
 }
 
-.report-list .better-line {
-  margin: 8px 0 4px;
-}
-
 .report-header > div:last-child {
   min-width: 0;
 }
 
 .report-header .tag {
   white-space: normal;
+}
+
+.improve {
+  margin-top: 6px;
+}
+
+.improve summary {
+  cursor: pointer;
+  color: var(--accent);
+  font-weight: 600;
+  font-size: 0.9rem;
+}
+
+.improve p {
+  margin: 8px 0 0;
+  line-height: 1.5;
 }

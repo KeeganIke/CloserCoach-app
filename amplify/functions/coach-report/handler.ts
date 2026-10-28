@@ -96,7 +96,7 @@ Hard rules:
 
 ## Evidence
 
-Evaluate only what the rep actually said and did. Never invent quotes, events or objections. Every quote ("evidence", "quote", "objection", "yourResponse") must be copied word for word from a single transcript line; use an empty string when there is nothing to quote. Keep quotes short: just the key words, at most about 15 words, using "..." to skip words within the line. Never use the same quote twice anywhere in the report; pick a different moment or leave the quote empty. The transcript has no timestamps; do not output any. Keep the quote (what was observed) separate from the rationale (your interpretation). The quote is shown right after the rationale, so the rationale must never restate or paraphrase it; say why it helped or hurt instead. Bad: "You asked for thirty seconds." + "Do you have thirty seconds?" Good: "Asking for a moment gave the owner an easy way in instead of a pitch." + "Do you have thirty seconds?" The same goes for strengths and missed opportunities. Every rating other than "na" needs a one-sentence rationale; for "na", say briefly why it couldn't be evaluated.
+Evaluate only what the rep actually said and did. Never invent quotes, events or objections. Every quote ("evidence", "quote", "objection", "yourResponse") must be copied word for word from a single transcript line; use an empty string when there is nothing to quote. Keep quotes short: just the key words, at most about 15 words, using "..." to skip words within the line. Never use the same quote twice anywhere in the report; pick a different moment or leave the quote empty. Quotes are optional: only include one when it shows exactly the moment you're talking about. A loosely related quote or a sentence fragment is worse than none, so leave it empty when in doubt. The transcript has no timestamps; do not output any. Keep the quote (what was observed) separate from the rationale (your interpretation), and never let the rationale restate or paraphrase the quote; say why it helped or hurt instead. Every rating other than "na" needs a one-sentence rationale; for "na", say briefly why it couldn't be evaluated.
 
 ## Outcome and qualification (separate from the ratings)
 
@@ -118,18 +118,22 @@ Give each one a supporting quote and a one-sentence rationale.
 
 ## Coaching
 
+For every category rated "3" or lower, fill in the "How to improve" advice the rep will open under that category. This is the most useful part of the report, so make it concrete:
+- evidence: the rep's exact words at the moment that cost them, if one moment clearly did; otherwise empty.
+- improvement: one or two sentences saying exactly what to do differently and when, tied to this call ("When Maria said the site was bare-bones, ask what customers can't find or do on it, then what that costs her on a busy night."). Never generic advice like "improve discovery" or "be more confident".
+- tryLine: the exact words the rep could say at that moment: natural, spoken, one or two sentences, fitted to this owner and business.
+For "4" and "na", leave improvement and tryLine empty. Each category's advice must be about a different moment or skill; don't repeat the same fix across categories.
+
 - whatWorked: up to two specific strengths, each with a supporting quote. Do not invent praise to fill the slots; an empty list is fine.
-- whatFellFlat: up to three missed opportunities, most important first, each with a supporting quote.
-- focusNextCall: the single most important thing to work on next call.
-- suggestedLine: the exact words the rep could have said at the most important missed opportunity: natural, spoken, one or two sentences, fitted to this owner and business.
+- focusNextCall: the single most important thing to work on next call, as a concrete action.
 - objections: at most the 3 most important, real pushback only. "objection" is the owner's exact words and "yourResponse" is the rep's exact words, each a short quote from one transcript line, without any lead-in like "You said". For "mixed" or "fell_flat", "betterLine" is the exact words the rep could have said instead; for "worked", "betterLine" must be an empty string.
 - summary: one or two sentences on the call overall.
 
-Rules for every suggested line (suggestedLine, betterLine) and for focusNextCall:
+Rules for every suggested line (tryLine, betterLine) and for focusNextCall:
 - Never advise simply accepting the email and getting off the phone.
 - Use only facts about the offer that appear in the rep's offer description or in the call. Never invent prices, fees, guarantees, results or terms.
 - Never return to an angle the owner already rejected on the call.
-- Never repeat another suggested line in the report; the suggestedLine must address a different moment than any objection's betterLine.`
+- Never repeat another suggested line in the report; a category's tryLine must not duplicate an objection's betterLine.`
 
 const quoted = (description: string) => ({ type: 'string', description })
 const evidenceSchema = (statuses: readonly string[]) => ({
@@ -158,7 +162,7 @@ const pointsSchema = {
 const SCHEMA = {
   type: 'object',
   additionalProperties: false,
-  required: ['summary', 'categories', 'outcome', 'qualification', 'whatWorked', 'whatFellFlat', 'focusNextCall', 'suggestedLine', 'objections'],
+  required: ['summary', 'categories', 'outcome', 'qualification', 'whatWorked', 'focusNextCall', 'objections'],
   properties: {
     summary: quoted('One or two sentences on the call overall'),
     categories: {
@@ -167,21 +171,21 @@ const SCHEMA = {
       items: {
         type: 'object',
         additionalProperties: false,
-        required: ['id', 'rating', 'rationale', 'evidence'],
+        required: ['id', 'rating', 'rationale', 'evidence', 'improvement', 'tryLine'],
         properties: {
           id: { type: 'string', enum: AI_CATEGORIES.map((c) => c.id) },
           rating: { type: 'string', enum: RATINGS },
           rationale: quoted('One sentence'),
-          evidence: quoted('Exact words from one transcript line, or empty string'),
+          evidence: quoted("The rep's exact words at the moment that cost them, or empty string"),
+          improvement: quoted('What to do differently, one or two sentences; empty string for "4" or "na"'),
+          tryLine: quoted('Exact words to say instead; empty string for "4" or "na"'),
         },
       },
     },
     outcome: evidenceSchema(OUTCOMES),
     qualification: evidenceSchema(QUALIFICATIONS),
     whatWorked: { ...pointsSchema, description: 'Up to two strengths' },
-    whatFellFlat: { ...pointsSchema, description: 'Up to three missed opportunities, most important first' },
     focusNextCall: quoted('The single most important thing to work on next call'),
-    suggestedLine: quoted('Exact words for the most important missed opportunity'),
     objections: {
       type: 'array',
       items: {
@@ -259,8 +263,9 @@ export const handler = async (event: FunctionUrlEvent) => {
         model: MODEL,
         instructions: INSTRUCTIONS,
         input: `The owner was ${p.name || 'unknown'}, owner of ${p.business || 'a small business'} (${p.detail || 'no details'}).\n${offerLine}\n\nTranscript:\n${transcript}`,
-        reasoning: { effort: 'low' },
-        max_output_tokens: 8000,
+        reasoning: { effort: 'medium' },
+        // Reasoning tokens count toward this limit, so leave room for medium effort.
+        max_output_tokens: 16000,
         text: { format: { type: 'json_schema', name: 'coaching_report', schema: SCHEMA, strict: true } },
       }),
     })

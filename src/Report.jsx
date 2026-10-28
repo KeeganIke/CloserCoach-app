@@ -35,7 +35,7 @@ function Quote({ text }) {
   return text ? <span className="evidence">“{text}”</span> : null
 }
 
-function List({ title, items, suggestedLine }) {
+function List({ title, items }) {
   if (!items?.length) return null
   return (
     <section className="report-section">
@@ -44,11 +44,6 @@ function List({ title, items, suggestedLine }) {
         {items.map((item, i) => (
           <li key={i}>
             {item.point} <Quote text={item.quote} />
-            {i === 0 && suggestedLine && (
-              <p className="better-line">
-                <strong>Try instead:</strong> “{suggestedLine}”
-              </p>
-            )}
           </li>
         ))}
       </ul>
@@ -128,8 +123,24 @@ export default function Report({ report }) {
                 )}
                 <p className="skill-note">
                   {na ? 'Not counted. ' : `${RATING_LABELS[c.rating]}. `}
-                  {c.rationale} <Quote text={c.evidence} />
+                  {c.rationale}
                 </p>
+                {c.improvement && (
+                  <details className="improve">
+                    <summary>How to improve</summary>
+                    {c.evidence && (
+                      <p className="muted">
+                        <strong>You said:</strong> “{c.evidence}”
+                      </p>
+                    )}
+                    <p>{c.improvement}</p>
+                    {c.tryLine && (
+                      <p className="better-line">
+                        <strong>Try:</strong> “{c.tryLine}”
+                      </p>
+                    )}
+                  </details>
+                )}
               </div>
             )
           })}
@@ -165,7 +176,6 @@ export default function Report({ report }) {
       )}
 
       <List title="Strengths" items={report.whatWorked} />
-      <List title="Missed opportunities" items={report.whatFellFlat} suggestedLine={report.suggestedLine} />
     </div>
   )
 }
