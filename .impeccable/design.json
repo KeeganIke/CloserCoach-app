@@ -1,0 +1,181 @@
+{
+  "schemaVersion": 2,
+  "generatedAt": "2026-11-14T00:00:00Z",
+  "title": "Design System: Closer Coach",
+  "extensions": {
+    "colorMeta": {
+      "frame-navy": {
+        "role": "primary",
+        "displayName": "Practice Navy"
+      },
+      "action-blue": {
+        "role": "primary",
+        "displayName": "Action Blue"
+      },
+      "data-navy": {
+        "role": "primary",
+        "displayName": "Data Navy"
+      },
+      "compare-blue": {
+        "role": "secondary",
+        "displayName": "Previous-Period Blue"
+      },
+      "canvas": {
+        "role": "neutral",
+        "displayName": "Cool Canvas"
+      },
+      "surface": {
+        "role": "neutral",
+        "displayName": "Card White"
+      },
+      "ink": {
+        "role": "neutral",
+        "displayName": "Ink"
+      },
+      "good": {
+        "role": "status",
+        "displayName": "Booked Green"
+      },
+      "mixed": {
+        "role": "status",
+        "displayName": "Follow-up Amber"
+      },
+      "bad": {
+        "role": "status",
+        "displayName": "Missed Red"
+      }
+    },
+    "shadows": [
+      {
+        "name": "card-rest",
+        "value": "0 1px 3px rgba(16, 32, 70, 0.07), 0 8px 24px -12px rgba(16, 32, 70, 0.16)",
+        "purpose": "Every content card."
+      },
+      {
+        "name": "action-lift",
+        "value": "0 12px 26px -12px rgba(37, 99, 235, 0.8)",
+        "purpose": "Large primary buttons."
+      },
+      {
+        "name": "panel-lift",
+        "value": "0 24px 48px -24px rgba(19, 35, 74, 0.6)",
+        "purpose": "The dark navy call panel."
+      }
+    ],
+    "motion": [
+      {
+        "name": "state",
+        "value": "0.12s ease",
+        "purpose": "Hover and focus color changes."
+      }
+    ],
+    "breakpoints": [
+      {
+        "name": "phone",
+        "value": "560px"
+      },
+      {
+        "name": "tablet",
+        "value": "860px"
+      },
+      {
+        "name": "narrow-desktop",
+        "value": "1100px"
+      }
+    ]
+  },
+  "components": [
+    {
+      "name": "Primary Button",
+      "kind": "button",
+      "refersTo": "button-primary",
+      "description": "The one action to take next on a screen.",
+      "html": "<button class=\"ds-btn-primary\">Start a call</button>",
+      "css": ".ds-btn-primary { height: 34px; padding: 0 14px; border: none; border-radius: 8px; background: #2563eb; color: #fff; font-weight: 600; font-size: 14px; cursor: pointer; transition: background 0.12s; } .ds-btn-primary:hover { background: #1d4fd0; } .ds-btn-primary:focus-visible { outline: 2px solid #0f2c5c; outline-offset: 2px; }"
+    },
+    {
+      "name": "Secondary Button",
+      "kind": "button",
+      "refersTo": "button-secondary",
+      "description": "Every other button.",
+      "html": "<button class=\"ds-btn-secondary\">Save offer</button>",
+      "css": ".ds-btn-secondary { height: 34px; padding: 0 14px; border: 1px solid #e4e8ee; border-radius: 8px; background: #fff; color: #1a2233; font-weight: 600; font-size: 14px; cursor: pointer; } .ds-btn-secondary:hover { background: #f6f8fa; }"
+    },
+    {
+      "name": "Card",
+      "kind": "card",
+      "refersTo": "card",
+      "description": "Every content container.",
+      "html": "<section class=\"ds-card\"><h2>Getting better</h2><p>Listening and Adaptability, 84%</p></section>",
+      "css": ".ds-card { padding: 26px 28px; border-radius: 16px; background: #fff; box-shadow: 0 1px 2px rgba(16,32,70,.07), 0 8px 24px -12px rgba(16,32,70,.16); color: #1a2233; } .ds-card h2 { margin: 0 0 8px; font-size: 17px; }"
+    },
+    {
+      "name": "Input",
+      "kind": "input",
+      "refersTo": "input",
+      "description": "Text fields and the offer box.",
+      "html": "<input class=\"ds-input\" placeholder=\"e.g. Websites for local businesses\">",
+      "css": ".ds-input { padding: 10px 12px; border: 1px solid #e4e8ee; border-radius: 8px; background: #fff; color: #1a2233; font-size: 15px; } .ds-input:focus { outline: none; border-color: #2563eb; box-shadow: 0 0 0 3px #eaf1ff; }"
+    },
+    {
+      "name": "Status Pill",
+      "kind": "chip",
+      "refersTo": "pill",
+      "description": "Call outcome and verdict badges.",
+      "html": "<span class=\"ds-pill\">No meeting</span>",
+      "css": ".ds-pill { display: inline-block; padding: 2px 8px; border-radius: 999px; background: #fbe7e7; color: #c43c3c; font-size: 12px; font-weight: 600; }"
+    }
+  ],
+  "narrative": {
+    "northStar": "The Practice Room",
+    "keyCharacteristics": [
+      "Deep navy frame, cool gray canvas, soft white cards.",
+      "One bright blue for actions; status colors only for outcomes and grades.",
+      "Apple's system font, with big tabular numbers for scores.",
+      "Rounded, gently lifted cards; one dark navy panel per page at most, reserved for the moment that matters (the call box).",
+      "Plain, coach-like copy in sentence case."
+    ],
+    "rules": [
+      {
+        "name": "The One Blue Rule",
+        "body": "Action Blue marks what to do next. A screen has one primary blue button; everything else is secondary or a text link.",
+        "section": "colors"
+      },
+      {
+        "name": "The Status Means Status Rule",
+        "body": "Green, amber, and red describe how a call or skill went and nothing else. They are never decoration, section accents, or stripes on cards.",
+        "section": "colors"
+      },
+      {
+        "name": "The Sentence Case Rule",
+        "body": "All headings, labels, buttons, and badges are sentence case. No all-caps labels, and no small label above a heading: the heading carries the meaning (\"Next focus: Solution Fit\").",
+        "section": "typography"
+      },
+      {
+        "name": "The One Change Format Rule",
+        "body": "Every change reads arrow, size, unit: \"↑ 8 pts\", \"↓ 3\", \"↑ 4%\", or \"Same\", in Booked Green or Missed Red.",
+        "section": "typography"
+      },
+      {
+        "name": "The One Dark Panel Rule",
+        "body": "At most one dark navy panel per page, and only for the moment that matters most.",
+        "section": "elevation"
+      }
+    ],
+    "dos": [
+      "Do keep one primary Action Blue button per screen.",
+      "Do show every number with tabular figures, and write every change the same way (\"↑ 8 pts\").",
+      "Do keep rows and columns on the shared 20px gap, with equal-height columns in a row.",
+      "Do write labels and buttons in plain sentence case."
+    ],
+    "donts": [
+      "Don't add colored stripes or borders to cards to show category; use the icon chip and title.",
+      "Don't scatter small line charts across cards; trend charts live on the Analytics page.",
+      "Don't use green, amber, or red for anything except how a call or skill went.",
+      "Don't add a second dark navy panel to a page.",
+      "Don't use all-caps labels or a small eyebrow label above a heading.",
+      "Don't add colored side borders thicker than 1px to cards, callouts, or alerts; use a tinted background.",
+      "Don't use the pale Mist gray (faint) for text; it is for decoration only. Secondary text is Slate (muted)."
+    ]
+  }
+}

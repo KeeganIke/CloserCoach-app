@@ -1,4 +1,7 @@
-const GRADE_TONES = {
+import { changeText, changeTone } from './format.js'
+import Icon from './icons.jsx'
+
+export const GRADE_TONES = {
   Elite: 'good',
   Strong: 'good',
   Developing: 'mixed',
@@ -6,7 +9,7 @@ const GRADE_TONES = {
   Poor: 'bad',
 }
 
-const OUTCOMES = {
+export const OUTCOMES = {
   meeting_booked: { label: 'Meeting booked', tone: 'good' },
   follow_up_agreed: { label: 'Follow-up agreed', tone: 'mixed' },
   no_meeting: { label: 'No meeting', tone: 'bad' },
@@ -23,24 +26,43 @@ const VERDICTS = {
 }
 
 const clamp = (n, lo, hi) => Math.min(hi, Math.max(lo, Number(n) || 0))
-const points = (n) => String(Math.round(n * 100) / 100)
+const points = (n) => String(Math.round(n))
 
 function Quote({ text }) {
   return text ? <span className="evidence">“{text}”</span> : null
 }
 
-function List({ title, items }) {
-  if (!items?.length) return null
+function Points({ items, tone }) {
+  if (!items?.length) return <p className="muted small">Nothing to note.</p>
   return (
-    <section className="report-section">
-      <h3>{title}</h3>
-      <ul className="report-list">
-        {items.map((item, i) => (
-          <li key={i}>
+    <ul className="marked">
+      {items.map((item, i) => (
+        <li key={i}>
+          <span className={`mark ${tone}`} aria-hidden="true">
+            <Icon name={tone === 'good' ? 'check' : 'alert'} />
+          </span>
+          <span>
             {item.point} <Quote text={item.quote} />
-          </li>
-        ))}
-      </ul>
+          </span>
+        </li>
+      ))}
+    </ul>
+  )
+}
+
+// What worked and what to fix, side by side in one card.
+function Takeaways({ worked, fellFlat }) {
+  if (!worked?.length && !fellFlat?.length) return null
+  return (
+    <section className="card takeaways">
+      <div>
+        <h2 className="card-title">What you did well</h2>
+        <Points items={worked} tone="good" />
+      </div>
+      <div>
+        <h2 className="card-title">Areas to improve</h2>
+        <Points items={fellFlat} tone="warn" />
+      </div>
     </section>
   )
 }
@@ -85,12 +107,10 @@ function CallResult({ outcome }) {
   if (!outcome) return null
   const o = OUTCOMES[outcome.status] || OUTCOMES.insufficient_information
   return (
-    <section className="call-result">
-      <div className="result-chips">
-        <span className="result-label">Outcome</span>
-        <span className={`tag ${o.tone}`}>{o.label}</span>
-      </div>
-    </section>
+    <>
+      <span className="result-label">Outcome</span>
+      <span className={`tag ${o.tone}`}>{o.label}</span>
+    </>
   )
 }
 
@@ -98,7 +118,16 @@ function Reveal({ hidden, coaching, name }) {
   if (!hidden) return null
   return (
     <details className="reveal">
-      <summary>What {name} wasn't telling you</summary>
+      <summary>
+        <span className="reveal-icon">
+          <Icon name="bulb" />
+        </span>
+        <span className="reveal-head">
+          <strong>What {name} was really thinking</strong>
+          <span className="muted">{coaching || 'The problems and concerns they kept to themselves.'}</span>
+        </span>
+        <span className="reveal-more">View details</span>
+      </summary>
       <h4>Real problems</h4>
       <ul className="report-list">
         {hidden.problems.map((p, i) => (
@@ -117,7 +146,6 @@ function Reveal({ hidden, coaching, name }) {
         ))}
       </ul>
       {hidden.personality?.length > 0 && <p className="muted">Personality: {hidden.personality.join(', ')}</p>}
-      {coaching && <p className="reveal-coaching">{coaching}</p>}
     </details>
   )
 }
@@ -147,7 +175,7 @@ function Advice({ c }) {
 
 // Scorecard rows. Clear and Concise (graded by the coach) and Filler Words (counted
 // by the app) are scored separately but shown together as one Delivery row.
-function scorecardRows(categories) {
+export function scorecardRows(categories) {
   return categories
     .filter((c) => c.id !== 'delivery' || !categories.some((x) => x.id === 'clarity'))
     .map((c) => {
@@ -164,44 +192,116 @@ function scorecardRows(categories) {
     })
 }
 
-export default function Report({ report, persona }) {
+// Circular score, filled to the score out of 100.
+function ScoreRing({ score, tone }) {
+  const r = 52
+  const c = 2 * Math.PI * r
+  return (
+    <div className={`score-ring tone-${tone}`}>
+      <svg viewBox="0 0 120 120" aria-hidden="true">
+        <circle className="ring-track" cx="60" cy="60" r={r} />
+        <circle className="ring-fill" cx="60" cy="60" r={r} strokeDasharray={c} strokeDashoffset={c * (1 - score / 100)} />
+      </svg>
+      <div className="score-ring-text">
+        <span className="score-number">{score}</span>
+        <span className="score-label">out of 100</span>
+      </div>
+    </div>
+  )
+}
+
+// The three skills shown as headline cards next to the score.
+const HEADLINE = [
+  { id: 'discovery', label: 'Pain Discovery', icon: 'search' },
+  { id: 'objection_handling', label: 'Objection Handling', icon: 'shield' },
+  { id: 'closing', label: 'Closing and Next Step', icon: 'handshake' },
+]
+
+const percentOf = (report, id) => {
+  const row = scorecardRows(report.categories || []).find((r) => r.id === id)
+  return row && !row.na && row.max ? Math.round((row.earned / row.max) * 100) : null
+}
+
+// previous: reports from earlier calls, used to show change against your average.
+export default function Report({ report, persona, previous = [] }) {
   const score = clamp(report.overallScore, 0, 100)
   const rows = scorecardRows(report.categories || [])
   const skipped = rows.filter((r) => r.na).length
+  const tone = GRADE_TONES[report.performanceGrade] || 'mixed'
+  // The lowest-scoring skill that has advice; its "How to improve" starts open.
+  const weakestId = rows
+    .filter((r) => !r.na && r.max && r.parts.some((p) => p.improvement))
+    .reduce((low, r) => {
+      if (!low) return r
+      const diff = r.earned / r.max - low.earned / low.max
+      return diff < 0 || (diff === 0 && r.max - r.earned > low.max - low.earned) ? r : low
+    }, null)?.id
+  const avgOf = (values) => {
+    const v = values.filter((x) => x != null)
+    return v.length ? Math.round(v.reduce((a, b) => a + b, 0) / v.length) : null
+  }
+  const avgScore = avgOf(previous.map((r) => r.overallScore))
+
+  const change = (now, avg) => {
+    if (now == null || avg == null) return null
+    const d = now - avg
+    return <span className={`change ${changeTone(d)}`}>{changeText(d)} vs your average</span>
+  }
 
   return (
     <div className="report">
-      <div className="report-header">
-        <div className="score">
-          <span className="score-number">{score}</span>
-          <span className="score-label">/ 100</span>
-        </div>
-        <div>
-          <span className={`tag ${GRADE_TONES[report.performanceGrade] || 'mixed'}`}>{report.performanceGrade}</span>
-          <p className="outcome-summary">{report.summary}</p>
-        </div>
+      <div className="result-cards">
+        <section className="card score-card">
+          <ScoreRing score={score} tone={tone} />
+          <div className="score-card-text">
+            <span className={`tag ${tone}`}>{report.performanceGrade}</span>
+            {change(score, avgScore)}
+          </div>
+        </section>
+        {HEADLINE.map((h) => {
+          const pct = percentOf(report, h.id)
+          return (
+            <section key={h.id} className="card skill-card">
+              <span className="stat-icon blue">
+                <Icon name={h.icon} />
+              </span>
+              <span className="skill-card-label">{h.label}</span>
+              <span className="skill-card-value">{pct == null ? 'N/A' : `${pct}%`}</span>
+              {change(pct, avgOf(previous.map((r) => percentOf(r, h.id))))}
+            </section>
+          )
+        })}
       </div>
-
-      <CallResult outcome={report.outcome} />
 
       <Reveal hidden={report.hidden} coaching={report.hiddenCoaching} name={persona?.name || 'the owner'} />
 
-      {report.focusNextCall && (
-        <section className="focus">
-          <h3>Focus for your next call</h3>
-          <p>{report.focusNextCall}</p>
-        </section>
-      )}
+      <section className="card summary-card">
+        <div className="result-chips">
+          <CallResult outcome={report.outcome} />
+        </div>
+        <p className="summary-text">{report.summary}</p>
+        {report.focusNextCall && (
+          <div className="focus">
+            <h3>Focus for your next call</h3>
+            <p>{report.focusNextCall}</p>
+          </div>
+        )}
+      </section>
+
+      <Takeaways worked={report.whatWorked} fellFlat={report.whatFellFlat} />
 
       {rows.length > 0 && (
-        <section className="report-section">
-          <h3>Scorecard</h3>
-          <p className="muted">
-            Scored on {rows.length - skipped} of {rows.length} categories
-            {skipped > 0 && '. Categories marked N/A are left out of your score'}.
-          </p>
+        <section className="card">
+          <div className="panel-head">
+            <h2 className="card-title">Scorecard</h2>
+            <p className="muted small">
+              Scored on {rows.length - skipped} of {rows.length} categories
+              {skipped > 0 && '. N/A categories are left out of your score'}
+            </p>
+          </div>
           {rows.map((r) => {
             const advice = r.parts.filter((p) => p.improvement)
+            const weakest = r.id === weakestId
             return (
               <div key={r.id} className={`skill${r.na ? ' na' : ''}`}>
                 <div className="skill-row">
@@ -222,8 +322,8 @@ export default function Report({ report, persona }) {
                 ))}
                 {r.id === 'objection_handling' && <Objections items={report.objections} />}
                 {advice.length > 0 && (
-                  <details className="improve">
-                    <summary>How to improve</summary>
+                  <details className="improve" open={weakest}>
+                    <summary>How to improve{weakest && <span className="pill mixed small-pill">Your weakest skill</span>}</summary>
                     {advice.map((p) => (
                       <Advice key={p.id} c={p} />
                     ))}
@@ -234,9 +334,6 @@ export default function Report({ report, persona }) {
           })}
         </section>
       )}
-
-      <List title="Strengths" items={report.whatWorked} />
-      <List title="Weaknesses" items={report.whatFellFlat} />
     </div>
   )
 }
