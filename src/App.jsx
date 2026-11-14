@@ -414,6 +414,11 @@ function App() {
 
   const handleStart = async (e) => {
     e.preventDefault()
+    // The owner, their problems and their concerns are all built around the offer.
+    if (!offer.trim()) {
+      setError("Add what you're selling before you start. The owner's problems and objections are built around your offer.")
+      return
+    }
     setSavedReveal(null)
     setError('')
     setLines([])
@@ -680,9 +685,9 @@ function App() {
                     </span>
                   </div>
                 )}
-                {!savedOffer && !regradeMode && (
+                {!offer.trim() && !regradeMode && (
                   <p className="soft-warning">
-                    <Icon name="alert" /> No offer saved, so objections will be more generic.
+                    <Icon name="alert" /> Add your offer to start a call.
                   </p>
                 )}
                 {regradeMode ? (

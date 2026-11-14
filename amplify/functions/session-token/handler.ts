@@ -280,8 +280,11 @@ export const handler = async (event: FunctionUrlEvent) => {
     return json(401, { error: 'Wrong access code' })
   }
 
-  const persona = PERSONAS[Math.floor(Math.random() * PERSONAS.length)]
   const offer = typeof body.offer === 'string' ? body.offer.trim().slice(0, 600) : ''
+  if (!offer) {
+    return json(400, { error: "Add what you're selling before you start a call." })
+  }
+  const persona = PERSONAS[Math.floor(Math.random() * PERSONAS.length)]
   const { hidden, traitText } = pickHidden(persona)
   // An owner who wants everything in writing will ask for an email regardless.
   const wantsWriting = COMMON_CONCERNS.some((c) => c.kind === 'writing' && hidden.concerns.includes(c.text))
