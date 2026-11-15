@@ -1,105 +1,21 @@
 // Everything a practice owner is built from: who they are, how they act, what's
-// going on in their business, and the concerns that business gives them.
+// going on in their business, and the concerns that business gives them. The
+// business itself comes from the offer analysis (shared/offer.ts).
 // scenario.ts combines these into one owner per call. Plain data, no AI.
 
 // ---------- Who picks up ----------
 
-export type Owner = {
-  name: string
-  gender: 'male' | 'female'
-  business: string
-  industry: string
-  detail: string
-  background: string
-  // What they're in the middle of when the phone rings; one is picked per call.
-  scenes: string[]
-  // Used only when no offer analysis exists: problems most offers could touch,
-  // each tagged with an area so a fully booked owner never gets a "need more
-  // customers" problem.
-  problems: { area: 'customers' | 'time' | 'money' | 'reputation'; text: string }[]
-}
+// Five owners, each with their own voice. None is tied to a business: the
+// offer analysis builds businesses that match who the rep sells to, and each
+// call pairs a random owner with one of them.
+export type Owner = { name: string; gender: 'male' | 'female' }
 
 export const OWNERS: Owner[] = [
-  {
-    name: 'Dave',
-    gender: 'male',
-    business: "Dave's Auto Repair",
-    industry: 'auto repair',
-    detail: 'a 3-bay auto shop with 4 mechanics',
-    background: 'Opened the shop 14 years ago after working at a dealership; most customers are longtime regulars.',
-    scenes: ['under a car finishing a brake job', 'at the front counter with a customer waiting', 'walking back from the parts store'],
-    problems: [
-      { area: 'customers', text: 'misses calls while working under a car, and some of those callers just try the next shop' },
-      { area: 'customers', text: "people new to town don't know the shop exists; nearly all the business is old regulars" },
-      { area: 'time', text: 'spends evenings returning calls and writing up quotes instead of being home' },
-      { area: 'money', text: 'January and February are slow every year and cash gets tight' },
-      { area: 'reputation', text: 'has only a handful of online reviews even though regulars love the shop' },
-    ],
-  },
-  {
-    name: 'Maria',
-    gender: 'female',
-    business: 'Bella Cucina',
-    industry: 'restaurant',
-    detail: 'a family Italian restaurant, about 40 seats',
-    background: 'Runs the restaurant her parents started 22 years ago; her brother runs the kitchen.',
-    scenes: ['prepping before the dinner rush', 'doing the week’s food order', 'between lunch tables'],
-    problems: [
-      { area: 'customers', text: 'Tuesday and Wednesday nights are half empty' },
-      { area: 'customers', text: "people searching nearby can't easily see the menu or hours, so they pick somewhere else" },
-      { area: 'time', text: "the phone rings nonstop for reservations and takeout during the dinner rush, and staff can't keep up" },
-      { area: 'money', text: 'the delivery apps take a big cut of every order' },
-      { area: 'reputation', text: 'one bad review from last year still shows up near the top' },
-    ],
-  },
-  {
-    name: 'Tom',
-    gender: 'male',
-    business: 'Summit Roofing',
-    industry: 'roofing',
-    detail: 'a roofing company with 2 crews',
-    background: 'Started as a one-man crew 9 years ago; now runs two crews and still does every estimate himself.',
-    scenes: ['driving between job sites', 'on a roof checking a crew’s work', 'in the truck writing up an estimate'],
-    problems: [
-      { area: 'customers', text: 'work dries up between storm seasons' },
-      { area: 'customers', text: 'loses jobs to bigger roofers who show up first when homeowners search after a storm' },
-      { area: 'time', text: 'spends hours driving out to give estimates for jobs that never close' },
-      { area: 'customers', text: 'pays a lead service for leads it also sells to three other roofers' },
-      { area: 'reputation', text: 'homeowners ask for photos of past jobs and he has no easy way to show them' },
-    ],
-  },
-  {
-    name: 'Linda',
-    gender: 'female',
-    business: 'Bright Smiles Dental',
-    industry: 'dental practice',
-    detail: 'a dental practice with 2 dentists',
-    background: 'Co-owns the practice and still sees patients four days a week; manages the business side on Fridays.',
-    scenes: ['between patients', 'reviewing the schedule at the front desk', 'on her lunch break'],
-    problems: [
-      { area: 'customers', text: 'new patient numbers have slipped since a new practice opened nearby' },
-      { area: 'customers', text: "people can't book or request an appointment outside office hours" },
-      { area: 'time', text: 'the front desk spends half the day on the phone scheduling and confirming' },
-      { area: 'money', text: 'no-shows and last-minute cancellations leave empty chairs most weeks' },
-      { area: 'reputation', text: 'the practice has few online reviews and most are years old' },
-    ],
-  },
-  {
-    name: 'Mike',
-    gender: 'male',
-    business: 'Iron Works Gym',
-    industry: 'gym',
-    detail: 'an independent gym with about 300 members',
-    background: 'Former trainer who opened his own gym 6 years ago; knows most members by name.',
-    scenes: ['on the gym floor between sessions', 'fixing a cable machine', 'at the front desk checking people in'],
-    problems: [
-      { area: 'customers', text: 'January signups fade fast and members quit after two or three months' },
-      { area: 'customers', text: 'the big chain gym nearby gets most of the people searching for a gym' },
-      { area: 'time', text: 'spends nights chasing failed payments and answering the same questions by text' },
-      { area: 'money', text: 'summer is slow and cancellations pile up' },
-      { area: 'reputation', text: 'the gym has great trainers, but nobody looking online would know it' },
-    ],
-  },
+  { name: 'Dave', gender: 'male' },
+  { name: 'Maria', gender: 'female' },
+  { name: 'Tom', gender: 'male' },
+  { name: 'Linda', gender: 'female' },
+  { name: 'Mike', gender: 'male' },
 ]
 
 // ---------- How they act: 8 traits, each 1 (low) to 4 (high) ----------
@@ -280,20 +196,6 @@ export const NEEDS_SITUATION: Record<string, Situation> = {
   trusted_vendor: 'has_setup',
   new_to_this: 'no_solution',
 }
-
-// Used only when no offer analysis exists. Generic enough for most offers.
-// "outside" setups are run by another company or person, the only kind a
-// trusted-vendor owner can have.
-export const FALLBACK_SETUPS = [
-  { text: 'an outside company handles it for you', weakness: "it's hard to tell what they actually do for the money", outside: true },
-  { text: 'a local freelancer has handled it for you for a while', weakness: "they're slow to make changes and hard to reach", outside: true },
-  { text: 'a family member set something up for you a few years ago', weakness: 'nobody has touched it since', outside: false },
-  { text: 'someone on your staff handles it when they have time', weakness: 'it slips whenever things get busy', outside: false },
-]
-export const FALLBACK_GAPS = [
-  { text: 'you handle it yourself when you get a minute', gap: 'it falls through the cracks on busy days' },
-  { text: "you don't really do anything about it", gap: "it's never been a priority, so it never gets done" },
-]
 
 // ---------- What they want ----------
 

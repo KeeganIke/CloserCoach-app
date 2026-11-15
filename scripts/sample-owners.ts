@@ -1,7 +1,9 @@
 // Prints sample practice owners in plain English, for reviewing the owner lists.
 //   npx tsx scripts/sample-owners.ts          (5 random owners)
 //   npx tsx scripts/sample-owners.ts 482913   (one specific scenario number)
+// Uses the sample contractor businesses in sampleBusinesses.ts.
 import { TRAIT_NAMES, TRAITS } from '../amplify/functions/session-token/owners'
+import { SAMPLE_CONTEXT } from '../amplify/functions/session-token/sampleBusinesses'
 import { buildScenario, pickScenario, type Scenario } from '../amplify/functions/session-token/scenario'
 
 function describe(s: Scenario) {
@@ -25,5 +27,5 @@ function describe(s: Scenario) {
 }
 
 const arg = Number(process.argv[2])
-const list = arg ? [buildScenario(arg)] : Array.from({ length: 5 }, () => pickScenario())
+const list = arg ? [buildScenario(arg, SAMPLE_CONTEXT)] : Array.from({ length: 5 }, () => pickScenario({ offer: SAMPLE_CONTEXT }))
 console.log(list.map(describe).join('\n\n'))

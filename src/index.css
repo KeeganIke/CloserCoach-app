@@ -1526,7 +1526,7 @@ p.hint {
 }
 
 .launch .offer-card textarea {
-  min-height: 112px;
+  min-height: 64px;
 }
 
 .start-box .start-button {
@@ -1794,8 +1794,8 @@ p.hint {
   font-size: 13px;
 }
 
-.offer-editor .input {
-  min-height: 108px;
+.offer-editor textarea.input {
+  min-height: 64px;
 }
 
 .offer-foot {
@@ -2160,6 +2160,62 @@ p.hint {
   padding: 12px 14px;
   border-radius: 10px;
   background: var(--canvas);
+}
+
+/* The offer's fields: what you sell on top, then who and price side by side. */
+.offer-fields {
+  display: grid;
+  grid-template-columns: minmax(0, 1.4fr) minmax(0, 1fr);
+  gap: 12px;
+  align-content: start;
+}
+
+.offer-field {
+  display: flex;
+  flex-direction: column;
+  gap: 5px;
+}
+
+.offer-field-product,
+.offer-field-terms {
+  grid-column: 1 / -1;
+}
+
+.offer-label {
+  font-size: 13px;
+  font-weight: 600;
+}
+
+.offer-facts {
+  display: grid;
+  gap: 6px;
+  margin: 0;
+}
+
+.offer-facts div {
+  display: grid;
+  grid-template-columns: 7.5em minmax(0, 1fr);
+  gap: 8px;
+}
+
+.offer-facts dt {
+  color: var(--muted);
+  font-size: 13px;
+  font-weight: 600;
+}
+
+.offer-facts dd {
+  margin: 0;
+  overflow-wrap: anywhere;
+}
+
+.save-state.ready-list {
+  align-items: flex-start;
+}
+
+.save-state.ready-list .icon {
+  flex: none;
+  margin-top: 2px;
 }
 
 .offer-summary p {
@@ -2576,9 +2632,8 @@ p.hint {
   flex-direction: column;
 }
 
-.launch .offer-editor .input {
+.launch .offer-editor .offer-fields {
   flex: 1;
-  min-height: 100px;
 }
 
 /* The call box: the one dark panel on the page. */
@@ -3165,6 +3220,10 @@ textarea {
 }
 
 @media (max-width: 560px) {
+  .offer-fields {
+    grid-template-columns: 1fr;
+  }
+
   .hide-sm {
   display: none;
 }

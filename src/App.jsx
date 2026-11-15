@@ -8,14 +8,13 @@ import MyProgress from './Progress.jsx'
 import Icon, { Logo } from './icons.jsx'
 import Dashboard, { CallTable, Overview, RANGES, StatCards, coachingFocus, formatDate } from './Dashboard.jsx'
 import { clearHistory, deleteCall, loadHistory, saveCall } from './history.js'
-import { analyzeOffer, loadAnalysis } from './offerAnalysis.js'
+import { analyzeOffer, loadAnalysis, pickAhead } from './offerAnalysis.js'
+import { OFFER_LIMITS, isComplete, loadOffer, normalizeOffer, offerText, sameOffer, storeOffer } from './offer.js'
 import { MAX_CALL_SECONDS, REPORT_URL, TOKEN_URL } from './config.js'
 
 const CODE_KEY = 'closer-coach-access-code'
-const OFFER_KEY = 'closer-coach-offer'
-const MAX_OFFER_CHARS = 600
 
-// The offer is a per-device convenience; the app works without storage.
+// Settings are a per-device convenience; the app works without storage.
 function readStored(key, fallback) {
   try {
     return localStorage.getItem(key) ?? fallback
@@ -172,23 +171,36 @@ function PageHeader({ title, subtitle, actions }) {
 }
 
 const OFFER_HELP =
-  "Tell the coach what you sell and how much it costs. Your offer helps generate realistic objections and ensures your practice calls reflect the product or service you're actually selling."
+  "Tell the coach what you sell, who you sell to, and the price. Every practice call is with a business you'd actually sell to, and the owner's problems and pushback fit your offer."
 
-// The offer box used on both the Practice and Settings pages.
-const OFFER_EXAMPLE = 'e.g. I build websites for local businesses. $77/month, fully built for you, no contracts.'
+const OFFER_FIELDS = [
+  { key: 'product', label: 'What you sell', placeholder: "e.g. Missed-call text-back: every missed call gets an instant text so the customer doesn't call someone else", multiline: true },
+  { key: 'audience', label: 'Who you sell to', placeholder: 'e.g. Contractors: plumbers, electricians, roofers' },
+  { key: 'price', label: 'Price', placeholder: 'e.g. $97/month' },
+  { key: 'terms', label: 'Terms (optional)', placeholder: 'e.g. No contract, 14-day free trial' },
+]
 
 // The offer box used on both the Practice and Settings pages. A saved offer shows
-// as a short summary with an Edit link; editing opens the text box.
-function OfferEditor({ offer, savedOffer, onChange, onSave, analysis, onRetry, compact = false }) {
-  const [editing, setEditing] = useState(!savedOffer)
-  const unsaved = offer !== savedOffer
+// as a short summary with an Edit link; editing opens the fields.
+function OfferEditor({ offer, savedOffer, onChange, onSave, onSettle, analysis, onRetry, compact = false }) {
+  const saved = isComplete(savedOffer)
+  const [editing, setEditing] = useState(!saved)
+  const unsaved = !sameOffer(offer, savedOffer)
+  const complete = isComplete(offer)
 
-  if (!editing && savedOffer && !unsaved) {
+  if (!editing && saved && !unsaved) {
     return (
       <div className="offer-editor">
         {!compact && <p className="help-text">{OFFER_HELP}</p>}
         <div className="offer-summary">
-          <p>{savedOffer}</p>
+          <dl className="offer-facts">
+            {OFFER_FIELDS.filter((f) => savedOffer[f.key]).map((f) => (
+              <div key={f.key}>
+                <dt>{f.label.replace(' (optional)', '')}</dt>
+                <dd>{savedOffer[f.key]}</dd>
+              </div>
+            ))}
+          </dl>
           <button type="button" className="text-button" onClick={() => setEditing(true)}>
             Edit
           </button>
@@ -198,28 +210,37 @@ function OfferEditor({ offer, savedOffer, onChange, onSave, analysis, onRetry, c
     )
   }
 
+  const field = (f) => {
+    const props = {
+      id: `offer-${f.key}${compact ? '-settings' : ''}`,
+      className: 'input',
+      maxLength: OFFER_LIMITS[f.key],
+      placeholder: f.placeholder,
+      value: offer[f.key],
+      onChange: (e) => onChange({ ...offer, [f.key]: e.target.value }),
+      // Leaving "what you sell" or "who you sell to" starts picking businesses early.
+      onBlur: f.key === 'product' || f.key === 'audience' ? () => onSettle?.(offer) : undefined,
+    }
+    return (
+      <label className={`offer-field offer-field-${f.key}`} key={f.key} htmlFor={props.id}>
+        <span className="offer-label">{f.label}</span>
+        {f.multiline ? <textarea rows={2} {...props} /> : <input {...props} />}
+      </label>
+    )
+  }
+
   return (
     <div className="offer-editor">
       {!compact && <p className="help-text">{OFFER_HELP}</p>}
-      <textarea
-        className="input"
-        rows={compact ? 5 : 4}
-        maxLength={MAX_OFFER_CHARS}
-        placeholder={OFFER_EXAMPLE}
-        value={offer}
-        onChange={(e) => onChange(e.target.value)}
-        aria-label="Your offer"
-      />
+      <div className="offer-fields">{OFFER_FIELDS.map(field)}</div>
       <div className="offer-foot">
         {unsaved ? (
-          <span className="save-state unsaved">Unsaved changes</span>
+          <span className="save-state unsaved">{complete ? 'Unsaved changes' : 'Fill in what you sell, who to, and the price'}</span>
         ) : (
-          <span className="hint">
-            {offer.length} / {MAX_OFFER_CHARS}
-          </span>
+          <span />
         )}
         <div className="offer-actions">
-          {savedOffer && (
+          {saved && (
             <button
               type="button"
               className="text-button"
@@ -236,9 +257,9 @@ function OfferEditor({ offer, savedOffer, onChange, onSave, analysis, onRetry, c
             className="button secondary small-button"
             onClick={() => {
               onSave()
-              if (offer.trim()) setEditing(false)
+              setEditing(false)
             }}
-            disabled={!unsaved}
+            disabled={!unsaved || !complete}
           >
             Save offer
           </button>
@@ -248,49 +269,62 @@ function OfferEditor({ offer, savedOffer, onChange, onSave, analysis, onRetry, c
   )
 }
 
-const OWNER_COUNT = 5
-
 // What the offer card shows for a saved analysis result (or none).
 function analysisState(result) {
   if (!result) return { status: 'idle' }
-  if (result.missing?.length) return { status: 'partial', missing: result.missing, error: result.detail }
-  return { status: 'ready' }
+  if (result.missing?.length) return { status: 'partial', ready: result.ready, missing: result.missing, error: result.detail }
+  return { status: 'ready', ready: result.ready, ms: result.ms }
 }
 
-// Under a saved offer: whether the owners have been tailored to it yet.
+const listKinds = (ready = []) => [...new Set(ready)].join(', ')
+
+// Under a saved offer: whether the businesses for it are ready.
 function OwnersStatus({ analysis, onRetry }) {
   if (analysis?.status === 'loading') {
     return (
       <span className="save-state working" role="status">
-        <span className="pulse-dot" aria-hidden="true" /> Saved. Getting your owners ready…
+        <span className="pulse-dot" aria-hidden="true" /> Saved. Getting your businesses ready…
       </span>
     )
   }
+  const retry = (
+    <button type="button" className="text-button" onClick={onRetry}>
+      Try again
+    </button>
+  )
   if (analysis?.status === 'partial') {
+    const total = analysis.ready.length + analysis.missing.length
     return (
       <span className="save-state unsaved" role="status">
-        Saved. {OWNER_COUNT - analysis.missing.length} of {OWNER_COUNT} owners ready.
+        Saved. {analysis.ready.length} of {total} businesses ready.
         {analysis.error && <span className="status-detail"> ({analysis.error})</span>}
-        <button type="button" className="text-button" onClick={onRetry}>
-          Try again
-        </button>
+        {retry}
       </span>
     )
   }
   if (analysis?.status === 'error') {
     return (
       <span className="save-state unsaved" role="status">
-        Saved, but the owners aren't tailored to it yet.
+        Saved, but your businesses aren't ready yet.
         {analysis.error && <span className="status-detail"> ({analysis.error})</span>}
-        <button type="button" className="text-button" onClick={onRetry}>
-          Try again
-        </button>
+        {retry}
+      </span>
+    )
+  }
+  if (analysis?.status === 'ready') {
+    return (
+      <span className="save-state saved ready-list" role="status">
+        <Icon name="check" />
+        <span>
+          Saved. You'll call: <span className="status-detail">{listKinds(analysis.ready)}</span>
+          {analysis.ms > 0 && <span className="status-detail"> · took {(analysis.ms / 1000).toFixed(1)}s</span>}
+        </span>
       </span>
     )
   }
   return (
     <span className="save-state saved" role="status">
-      <Icon name="check" /> {analysis?.status === 'ready' ? 'Saved. Owners ready' : 'Saved'}
+      <Icon name="check" /> Saved
     </span>
   )
 }
@@ -371,11 +405,11 @@ function App() {
   const [report, setReport] = useState(null)
   const [reportStatus, setReportStatus] = useState('idle') // idle | loading | done | error
   const [reportError, setReportError] = useState('')
-  const [offer, setOffer] = useState(() => readStored(OFFER_KEY, ''))
-  const [savedOffer, setSavedOffer] = useState(() => readStored(OFFER_KEY, ''))
-  // idle | loading | ready | partial | error: the owners tailored to the saved offer.
-  const [analysis, setAnalysis] = useState(() => analysisState(loadAnalysis(readStored(OFFER_KEY, ''))))
-  const analyzing = useRef('') // the offer being analyzed, so a stale answer is ignored
+  const [offer, setOffer] = useState(loadOffer) // the fields being edited
+  const [savedOffer, setSavedOffer] = useState(loadOffer)
+  // idle | loading | ready | partial | error: the businesses for the saved offer.
+  const [analysis, setAnalysis] = useState(() => analysisState(loadAnalysis(loadOffer())))
+  const inFlight = useRef(null) // { key, promise } for the analysis running now
   const [history, setHistory] = useState(loadHistory)
   const [openCall, setOpenCall] = useState(null) // a saved call being reread
   const [range, setRange] = useState('30')
@@ -398,37 +432,53 @@ function App() {
     return () => clearTimeout(t)
   }, [toast])
 
-  const prepareOwners = async (text) => {
-    analyzing.current = text
+  const savedText = offerText(savedOffer) // the saved offer as one text, for calls and grading
+
+  // Gets the businesses for an offer ready. A second request for the same offer
+  // waits on the first instead of starting another. Resolves to the new status.
+  const prepareOwners = (fields, code = accessCode) => {
+    const key = offerText(fields)
+    if (inFlight.current?.key === key) return inFlight.current.promise
     setAnalysis({ status: 'loading' })
-    try {
-      const result = await analyzeOffer({ reportUrl: REPORT_URL, accessCode, offer: text })
-      if (analyzing.current === text) setAnalysis(analysisState(result))
-    } catch (err) {
-      if (analyzing.current === text) setAnalysis({ status: 'error', error: err.detail || err.message })
-    }
+    const current = () => inFlight.current?.key === key
+    const promise = analyzeOffer({ reportUrl: REPORT_URL, accessCode: code, offer: fields })
+      .then(analysisState, (err) => ({ status: 'error', error: err.detail || err.message }))
+      .then((state) => {
+        if (current()) {
+          setAnalysis(state)
+          inFlight.current = null
+        }
+        return state
+      })
+    inFlight.current = { key, promise }
+    return promise
   }
 
-  // Tailor the owners whenever there's a saved offer without an analysis.
-  // Calls still work without one; owners then use general setups and problems.
-  // A partial one (some owners failed earlier) picks up where it left off.
+  // Get the businesses ready whenever there's a saved offer without them. A
+  // partial result (some businesses failed earlier) picks up where it left off.
   useEffect(() => {
     const saved = loadAnalysis(savedOffer)
-    if (!savedOffer.trim() || (saved && !saved.missing.length)) {
-      analyzing.current = ''
+    if (!savedText || (saved && !saved.missing.length)) {
+      inFlight.current = null
       setAnalysis(analysisState(saved))
       return
     }
     if (!codeSaved || !accessCode) {
-      setAnalysis({ status: 'idle' })
+      setAnalysis(analysisState(saved))
       return
     }
     prepareOwners(savedOffer)
-  }, [savedOffer, codeSaved])
+  }, [savedText, codeSaved])
+
+  const pickEarly = (fields) => {
+    if (codeSaved && accessCode) pickAhead({ reportUrl: REPORT_URL, accessCode, offer: fields })
+  }
 
   const saveOffer = () => {
-    store(OFFER_KEY, offer)
-    setSavedOffer(offer)
+    const clean = normalizeOffer(offer)
+    storeOffer(clean)
+    setOffer(clean)
+    setSavedOffer(clean)
     notify('Offer saved')
   }
 
@@ -455,14 +505,14 @@ function App() {
         reportUrl: REPORT_URL,
         accessCode,
         persona: callPersona,
-        offer,
+        offer: savedText,
         hidden: callHidden,
         lines: kept,
       })
       const finalReport = reveal ? { ...graded, hidden: reveal.hidden, hiddenCoaching: reveal.coaching } : graded
       setReport(finalReport)
       setReportStatus('done')
-      setHistory(saveCall({ persona: callPersona, offer, report: finalReport, lines: kept }))
+      setHistory(saveCall({ persona: callPersona, offer: savedText, report: finalReport, lines: kept }))
     } catch (err) {
       setReportError(err.message)
       setReportStatus('error')
@@ -491,26 +541,42 @@ function App() {
 
   const handleStart = async (e) => {
     e.preventDefault()
-    // The owner, their problems and their concerns are all built around the offer.
-    if (!offer.trim()) {
-      setError("Add what you're selling before you start. The owner's problems and objections are built around your offer.")
+    // The business, its problems and the owner's concerns are all built around the offer.
+    if (!isComplete(offer)) {
+      setError('Fill in what you sell, who you sell to, and the price before you start. Every owner you call is built around your offer.')
       return
+    }
+    const fields = normalizeOffer(offer)
+    if (!sameOffer(fields, savedOffer)) {
+      storeOffer(fields)
+      setSavedOffer(fields)
     }
     setSavedReveal(null)
     setError('')
     setLines([])
     setRetryAudio(null)
     stickToBottom.current = true
-    setPhase('connecting')
     store(CODE_KEY, accessCode)
     setCodeSaved(true)
-    store(OFFER_KEY, offer)
-    setSavedOffer(offer)
+
+    // Every call is with a business that matches the offer, so wait for them.
+    const ready = loadAnalysis(fields)
+    if (!ready) {
+      setPhase('preparing')
+      const state = await prepareOwners(fields, accessCode)
+      if (state.status === 'error') {
+        setError(`Your businesses aren't ready yet, so the call didn't start. Try again in a moment.${state.error ? ` (${state.error})` : ''}`)
+        if (/access code/i.test(state.error || '') || /401/.test(state.error || '')) setCodeSaved(false)
+        setPhase('setup')
+        return
+      }
+    }
+    setPhase('connecting')
     try {
       const call = await startCall({
         tokenUrl: TOKEN_URL,
         accessCode,
-        offer,
+        offer: offerText(fields),
         onTranscript: setLines,
         onAudioBlocked: (retry) => setRetryAudio(() => retry),
       })
@@ -714,7 +780,7 @@ function App() {
               <li>
                 <span className="timeline-dot">1</span>
                 <strong>Set your offer</strong>
-                <span>What you sell and the price</span>
+                <span>What you sell, who to, and the price</span>
               </li>
               <li>
                 <span className="timeline-dot">2</span>
@@ -738,6 +804,7 @@ function App() {
                   savedOffer={savedOffer}
                   onChange={setOffer}
                   onSave={saveOffer}
+                  onSettle={pickEarly}
                   analysis={analysis}
                   onRetry={() => prepareOwners(savedOffer)}
                 />
@@ -748,7 +815,7 @@ function App() {
                   <Icon name="phone" /> Start your call
                 </h2>
                 <p className="help-text">
-                  A random owner picks up. Calls end after {MAX_CALL_SECONDS / 60} minutes.
+                  The owner of a business you sell to picks up. Calls end after {MAX_CALL_SECONDS / 60} minutes.
                 </p>
                 {/* A saved or linked code collapses to one line, unless it was rejected. */}
                 {(codeSaved || linkCode) && accessCode && !/access code/i.test(error) ? (
@@ -769,17 +836,21 @@ function App() {
                     </span>
                   </div>
                 )}
-                {!offer.trim() && !regradeMode && (
+                {!isComplete(offer) && !regradeMode && (
                   <p className="soft-warning">
-                    <Icon name="alert" /> Add your offer to start a call.
+                    <Icon name="alert" /> Fill in your offer to start a call.
                   </p>
                 )}
                 {regradeMode ? (
                   <Regrade onGrade={gradeSaved} />
                 ) : (
-                  <button className="button accent block start-button" type="submit" disabled={phase === 'connecting'}>
+                  <button
+                    className="button accent block start-button"
+                    type="submit"
+                    disabled={phase === 'connecting' || phase === 'preparing'}
+                  >
                     <Icon name="phone" />
-                    {phase === 'connecting' ? 'Dialing…' : 'Start call'}
+                    {phase === 'preparing' ? 'Getting your businesses ready…' : phase === 'connecting' ? 'Dialing…' : 'Start call'}
                   </button>
                 )}
                 {error && <Alert>{error}</Alert>}
@@ -887,6 +958,7 @@ function App() {
                 savedOffer={savedOffer}
                 onChange={setOffer}
                 onSave={saveOffer}
+                onSettle={pickEarly}
                 analysis={analysis}
                 onRetry={() => prepareOwners(savedOffer)}
                 compact

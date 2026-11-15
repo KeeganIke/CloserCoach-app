@@ -1,17 +1,19 @@
 import { test } from 'node:test'
 import assert from 'node:assert/strict'
-import { CONCERN_TYPES, FALLBACK_SETUPS, OWNERS, PERSONALITIES, TRAIT_SENTENCES, TRAITS } from './owners'
+import { CONCERN_TYPES, OWNERS, PERSONALITIES, TRAIT_SENTENCES, TRAITS } from './owners'
+import { SAMPLE_BUSINESSES, SAMPLE_CONTEXT } from './sampleBusinesses'
 import { buildScenario, pickScenario, validateScenario, type OfferContext, type RecentCall } from './scenario'
 
 const IDS = Array.from({ length: 2000 }, (_, i) => 100000 + i * 449)
-const all = IDS.map((id) => buildScenario(id))
+const all = IDS.map((id) => buildScenario(id, SAMPLE_CONTEXT))
+const businessOf = (name: string) => SAMPLE_BUSINESSES.find((b) => b.name === name)!
 
 test('every scenario passes every check', () => {
   for (const s of all) assert.deepEqual(validateScenario(s), [], `scenario ${s.id}`)
 })
 
 test('the same number always rebuilds the same owner', () => {
-  for (const id of IDS.slice(0, 50)) assert.deepEqual(buildScenario(id), buildScenario(id))
+  for (const id of IDS.slice(0, 50)) assert.deepEqual(buildScenario(id, SAMPLE_CONTEXT), buildScenario(id, SAMPLE_CONTEXT))
 })
 
 test('every owner has 1–3 concerns, with at least one from their business', () => {
@@ -48,17 +50,17 @@ test('analytical owners always want numbers', () => {
 
 test('a fully booked owner never gets a "need more customers" problem or motivation', () => {
   for (const s of all.filter((x) => x.facts.some((f) => f.id === 'fully_booked'))) {
-    const owner = OWNERS.find((o) => o.name === s.owner.name)!
-    for (const p of s.problems) assert.notEqual(owner.problems.find((q) => q.text === p)?.area, 'customers')
+    const business = businessOf(s.owner.business)
+    for (const p of s.problems) assert.notEqual(business.problems.find((q) => q.text === p)?.area, 'customers')
     assert.ok(!s.motivation.some((m) => /steady customers/i.test(m)))
   }
 })
 
 test('every concern type, owner, personality and situation shows up', () => {
-  // fit and compatibility come only from an offer analysis.
-  const types = new Set([...all, ...IDS.map((id) => buildScenario(id, productOffer))].flatMap((s) => s.concerns.map((c) => c.type)))
+  const types = new Set(all.flatMap((s) => s.concerns.map((c) => c.type)))
   for (const t of Object.keys(CONCERN_TYPES)) assert.ok(types.has(t as never), `${t} never appeared`)
   for (const o of OWNERS) assert.ok(all.some((s) => s.owner.name === o.name))
+  for (const b of SAMPLE_BUSINESSES) assert.ok(all.some((s) => s.owner.business === b.name))
   for (const p of PERSONALITIES) {
     const share = all.filter((s) => s.personality.id === p.id).length / all.length
     assert.ok(share > 0.1 && share < 0.25, `${p.label} share ${share}`)
@@ -76,70 +78,63 @@ test('a new call avoids the last owner, the last two personalities, and repeat c
   const random = () => ((n = (n * 9301 + 49297) % 233280) / 233280)
   const recent: RecentCall[] = []
   for (let i = 0; i < 200; i++) {
-    const s = pickScenario({ recent, random })
+    const s = pickScenario({ recent, offer: SAMPLE_CONTEXT, random })
     if (recent[0]) assert.notEqual(s.owner.name, recent[0].owner)
+    if (recent[0]) assert.notEqual(s.owner.industry, recent[0].business)
     for (const r of recent.slice(0, 2)) assert.notEqual(s.personality.id, r.personality)
     const recentTypes = new Set(recent.slice(0, 3).flatMap((r) => r.concernTypes))
     assert.ok(s.concerns.filter((c) => recentTypes.has(c.type)).length <= 1)
-    recent.unshift({ owner: s.owner.name, personality: s.personality.id, concernTypes: s.concerns.map((c) => c.type) })
+    recent.unshift({ owner: s.owner.name, business: s.owner.industry, personality: s.personality.id, concernTypes: s.concerns.map((c) => c.type) })
   }
 })
 
-test('offer analysis supplies the setup and problems when it exists', () => {
-  const offer: OfferContext = Object.fromEntries(
-    OWNERS.map((o) => [
-      o.name,
-      {
-        setups: [{ text: 'TEST setup', weakness: 'TEST weakness', outside: true }],
-        gaps: [{ text: 'TEST gap text', gap: 'TEST gap' }],
-        problems: [
-          { area: 'time', text: 'TEST time problem' },
-          { area: 'customers', text: 'TEST customers problem' },
-        ],
-      },
-    ]),
-  )
-  for (const id of IDS.slice(0, 200)) {
-    const s = buildScenario(id, offer)
-    assert.ok(s.setup.text.startsWith('TEST'))
-    assert.ok(s.problems.every((p) => p.startsWith('TEST')))
-    assert.deepEqual(validateScenario(s), [])
+test('every part of the business comes from the analysis', () => {
+  for (const s of all) {
+    const b = businessOf(s.owner.business)
+    assert.equal(s.owner.industry, b.type)
+    assert.equal(s.owner.detail, b.detail)
+    assert.ok(b.scenes.includes(s.scene))
+    const from = s.situation === 'has_setup' ? b.setups.map((x) => x.text) : b.gaps.map((x) => x.text)
+    assert.ok(from.includes(s.setup.text), `scenario ${s.id}`)
+    for (const p of s.problems) assert.ok(b.problems.some((q) => q.text === p))
   }
 })
 
-// An analysis where the product fits awkwardly and has to work with existing tools.
-const productOffer: OfferContext = Object.fromEntries(
-  OWNERS.map((o) => [
-    o.name,
-    {
-      fit: 'partial',
-      setups: FALLBACK_SETUPS,
-      gaps: [{ text: 'you handle it yourself', gap: 'it slips on busy days' }],
-      problems: o.problems,
-      reasons: { price: 'PRODUCT price reason.', need: 'PRODUCT need reason.' },
-      fitConcern: { angle: 'too_small', reason: 'PRODUCT fit reason.' },
-      toolsConcern: { angle: 'tools', reason: 'PRODUCT tools reason.' },
-    },
-  ]),
-)
+test("a business the facts don't fit never gets them", () => {
+  for (const s of all) {
+    const b = businessOf(s.owner.business)
+    if (!b.setups.some((x) => x.outside)) assert.ok(!s.facts.some((f) => f.id === 'trusted_vendor'), `scenario ${s.id}`)
+    if (!b.problems.some((p) => p.area !== 'customers')) assert.ok(!s.facts.some((f) => f.id === 'fully_booked'), `scenario ${s.id}`)
+  }
+})
 
-test('product concerns are minor and rare, and product reasons only explain concerns the owner already has', () => {
-  const built = IDS.map((id) => buildScenario(id, productOffer))
-  for (const s of built) {
-    assert.deepEqual(validateScenario(s), [], `scenario ${s.id}`)
+test('product concerns are minor and come only from businesses that have them', () => {
+  for (const s of all) {
+    const b = businessOf(s.owner.business)
     for (const c of s.concerns) {
-      if (c.type === 'fit' || c.type === 'compatibility') assert.equal(c.major, false)
-      if (c.type === 'price') assert.ok(c.reason.includes('PRODUCT price reason.'))
-      if (c.type !== 'price' && c.type !== 'need') assert.ok(!/PRODUCT (price|need)/.test(c.reason))
+      if (c.type === 'fit') assert.ok(!c.major && b.fit === 'partial' && b.fitConcern, `scenario ${s.id}`)
+      if (c.type === 'compatibility') assert.ok(!c.major && b.toolsConcern, `scenario ${s.id}`)
     }
   }
-  const share = (t: string) => built.filter((s) => s.concerns.some((c) => c.type === t)).length / built.length
-  assert.ok(share('fit') < 0.3 && share('compatibility') < 0.3, `fit ${share('fit')}, tools ${share('compatibility')}`)
 })
 
-test('without an analysis, the same number builds the same owner as before', () => {
-  // Product concerns only change the draw when an analysis exists.
-  for (const id of IDS.slice(0, 50)) assert.deepEqual(buildScenario(id, {}), buildScenario(id))
+test('product reasons explain a concern the owner already has', () => {
+  for (const s of all) for (const c of s.concerns) {
+    const why = businessOf(s.owner.business).reasons?.[c.type]
+    if (why) assert.ok(c.reason.includes(why), `scenario ${s.id}`)
+  }
+})
+
+test('one kind of business still works, and only then can the kind repeat', () => {
+  const one: OfferContext = { businesses: SAMPLE_BUSINESSES.slice(0, 1) }
+  let n = 7
+  const random = () => ((n = (n * 9301 + 49297) % 233280) / 233280)
+  const recent: RecentCall[] = []
+  for (let i = 0; i < 20; i++) {
+    const s = pickScenario({ recent, offer: one, random })
+    assert.equal(s.owner.business, 'Summit Plumbing')
+    recent.unshift({ owner: s.owner.name, business: s.owner.industry, personality: s.personality.id, concernTypes: [] })
+  }
 })
 
 test('Old School always believes what they have works', () => {
@@ -156,7 +151,7 @@ test('a burned-before concern is always major, never watered down', () => {
 
 test('an owner who trusts a long-time vendor has an outside setup and leads with loyalty', () => {
   for (const s of all.filter((x) => x.facts.some((f) => f.id === 'trusted_vendor'))) {
-    assert.ok(FALLBACK_SETUPS.find((f) => f.text === s.setup.text)?.outside, `scenario ${s.id}`)
+    assert.ok(businessOf(s.owner.business).setups.find((f) => f.text === s.setup.text)?.outside, `scenario ${s.id}`)
     assert.ok(s.concerns.some((c) => c.type === 'current'), `scenario ${s.id}`)
   }
 })

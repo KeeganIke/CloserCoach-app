@@ -2,16 +2,33 @@
 // coaching report. Uses the same Amplify secrets as session-token.
 
 import { openHidden, type Hidden } from '../shared/hidden'
-import { OWNERS } from '../session-token/owners'
-import { INSTRUCTIONS as OFFER_INSTRUCTIONS, SCHEMA as OFFER_SCHEMA, openOfferContext, ownerInput, sealOfferContext, toOwnerContext, type OfferContext, type OwnerOfferContext } from '../shared/offer'
+import {
+  INSTRUCTIONS as DETAIL_INSTRUCTIONS,
+  PICK_INSTRUCTIONS,
+  PICK_SCHEMA,
+  SCHEMA as DETAIL_SCHEMA,
+  businessInput,
+  normalizeOffer,
+  normalizePickFields,
+  pickInput,
+  reusable,
+  sealAnalysis,
+  sealPicks,
+  toBusinessDetails,
+  toIdentities,
+  type Business,
+  type BusinessIdentity,
+  type OfferFields,
+  type PickFields,
+} from '../shared/offer'
 import { AI_CATEGORIES, answerStats, buildReport, termsOutsideOffer, MIN_REP_TURNS, OUTCOMES, RATINGS, VERDICTS, countRepTurns, type Line } from './grading'
 
 const MODEL = 'gpt-6.1-sol'
 const MAX_LINES = 200
 const MAX_CHARS = 30000
 const MAX_ATTEMPTS = 2 // one retry when the model's output doesn't validate
-const MAX_OFFER_CHARS = 600
-const OWNER_ATTEMPTS = 3 // per owner, for the offer analysis
+const MAX_OFFER_CHARS = 900 // the offer's fields joined into one text
+const ANALYSIS_ATTEMPTS = 3 // per request, for the offer analysis
 
 type Persona = { name?: string; business?: string; detail?: string }
 
@@ -264,6 +281,7 @@ export const handler = async (event: FunctionUrlEvent) => {
   }
 
   if (body.action === 'analyze-offer') return analyzeOffer(body.offer, body.previous)
+  if (body.action === 'pick-businesses') return pickAhead(body.offer)
 
   const lines = (Array.isArray(body.lines) ? body.lines.slice(0, MAX_LINES) : []).filter(
     (l) => typeof l?.text === 'string' && l.text.trim(),
@@ -337,47 +355,94 @@ export const handler = async (event: FunctionUrlEvent) => {
   return json(502, { error: 'Could not grade the call' })
 }
 
-// Reads the rep's offer and works out, for each owner's business, realistic
-// setups, problems and concern reasons for that product. Runs once each time the
-// offer is saved; the browser keeps the sealed result for its calls. The five
-// owners run at the same time, so the wait is about one owner's worth.
+// Reads the rep's offer, picks small businesses that match who they sell to,
+// then (all at once) works out how the product fits into each one. Runs each
+// time the offer is saved; the browser keeps the sealed result for its calls.
+// A retry sends back the earlier result, so finished work isn't redone: the same
+// audience keeps its businesses, and the same offer keeps finished details.
 async function analyzeOffer(rawOffer: unknown, previous: unknown) {
-  const offer = typeof rawOffer === 'string' ? rawOffer.trim().slice(0, MAX_OFFER_CHARS) : ''
-  if (!offer) return json(400, { error: "Add what you're selling first." })
+  const offer = normalizeOffer(rawOffer)
+  if (!offer) return json(400, { error: 'Fill in what you sell, who you sell to, and the price.' })
   const secret = process.env.OPENAI_API_KEY || ''
-
-  // A retry sends back the earlier result, so only the owners that failed run again.
-  const done: OfferContext = openOfferContext(previous, offer, secret) ?? {}
-  const todo = OWNERS.filter((o) => !done[o.name])
-
   const started = Date.now()
-  const results = await Promise.all(todo.map((o) => analyzeOwner(o.name, offer)))
-  const context: OfferContext = { ...done }
-  todo.forEach((o, i) => {
-    const r = results[i]
-    if (r.ok) context[o.name] = r.value
-  })
-  const missing = OWNERS.filter((o) => !context[o.name]).map((o) => o.name)
-  const failure = results.find((r) => !r.ok)
-  console.log(`Offer analysis took ${Date.now() - started} ms for ${todo.length} owners; missing: ${missing.join(', ') || 'none'}`)
-  if (failure && !failure.ok) console.error(`Offer analysis failure: ${failure.error}`)
 
-  if (!Object.keys(context).length) {
-    return json(502, { error: "Couldn't get your owners ready", detail: failure && !failure.ok ? failure.error : '' })
+  const reuse = reusable(previous, offer, secret)
+  let picks = reuse.picks
+  if (!picks) {
+    const picked = await pickBusinesses(offer)
+    if (!picked.ok) return json(502, { error: "Couldn't get your businesses ready", detail: picked.error })
+    picks = picked.value
   }
-  // Owners still missing use the general lists on calls until a retry fills them in.
+  const pickedAt = Date.now()
+
+  const todo = picks.filter((p) => !reuse.done.some((d) => d.name === p.name))
+  const results = await Promise.all(todo.map((p) => describeBusiness(p, offer)))
+  const businesses: Business[] = picks.flatMap((p) => {
+    const done = reuse.done.find((d) => d.name === p.name)
+    if (done) return [done]
+    const r = results[todo.indexOf(p)]
+    return r.ok ? [{ ...p, ...r.value }] : []
+  })
+  const missing = picks.filter((p) => !businesses.some((b) => b.name === p.name)).map((p) => p.type)
+  const failure = results.find((r) => !r.ok)
+  const detail = failure && !failure.ok ? failure.error : ''
+  console.log(
+    `Offer analysis: ${reuse.picks ? 'reused businesses' : `picked in ${pickedAt - started} ms`}, ` +
+      `${todo.length} described in ${Date.now() - pickedAt} ms; missing: ${missing.join(', ') || 'none'}`,
+  )
+  if (detail) console.error(`Offer analysis failure: ${detail}`)
+
+  if (!businesses.length) return json(502, { error: "Couldn't get your businesses ready", detail })
+  // Missing businesses just aren't used on calls until a retry fills them in.
   return json(200, {
-    analysis: sealOfferContext(offer, context, secret),
+    analysis: sealAnalysis(offer, picks, businesses, secret),
+    ready: businesses.map((b) => b.type),
     missing,
-    detail: missing.length && failure && !failure.ok ? failure.error : '',
+    ms: Date.now() - started,
+    detail: missing.length ? detail : '',
   })
 }
 
-type OwnerResult = { ok: true; value: OwnerOfferContext } | { ok: false; error: string }
+// Picks businesses as soon as the rep has filled in what they sell and who to,
+// so saving the offer only waits for the details.
+async function pickAhead(rawOffer: unknown) {
+  const fields = normalizePickFields(rawOffer)
+  if (!fields) return json(400, { error: 'Fill in what you sell and who you sell to.' })
+  const started = Date.now()
+  const picked = await pickBusinesses(fields)
+  console.log(`Picked businesses ahead in ${Date.now() - started} ms`)
+  if (!picked.ok) return json(502, { error: "Couldn't pick businesses", detail: picked.error })
+  return json(200, { picks: sealPicks(fields, picked.value, process.env.OPENAI_API_KEY || '') })
+}
 
-async function analyzeOwner(name: string, offer: string): Promise<OwnerResult> {
+async function pickBusinesses(offer: PickFields) {
+  return askModel(PICK_INSTRUCTIONS, pickInput(offer), PICK_SCHEMA, 'pick_businesses', 'picking businesses', toIdentities)
+}
+
+async function describeBusiness(b: BusinessIdentity, offer: OfferFields) {
+  return askModel(DETAIL_INSTRUCTIONS, businessInput(b, offer), DETAIL_SCHEMA, 'business_details', b.type, (raw) =>
+    toBusinessDetails(b.type, raw),
+  )
+}
+
+// The analysis is fill-in-the-blanks work, so it asks for as little reasoning as
+// the model allows. If the model rejects that setting, fall back to 'low' for
+// the rest of this server's life.
+let analysisEffort: 'minimal' | 'low' = 'minimal'
+
+type Asked<T> = { ok: true; raw: unknown; value: T } | { ok: false; error: string }
+
+// One structured request with retries. `check` can reject an answer to force a retry.
+async function askModel<T = unknown>(
+  instructions: string,
+  input: string,
+  schema: object,
+  name: string,
+  label: string,
+  check: (raw: unknown) => { ok: true; value: T } | { ok: false; error: string } = (raw) => ({ ok: true, value: raw as T }),
+): Promise<Asked<T>> {
   let error = 'no answer'
-  for (let attempt = 1; attempt <= OWNER_ATTEMPTS; attempt++) {
+  for (let attempt = 1; attempt <= ANALYSIS_ATTEMPTS; attempt++) {
     const res = await fetch('https://api.openai.com/v1/responses', {
       method: 'POST',
       headers: {
@@ -386,17 +451,23 @@ async function analyzeOwner(name: string, offer: string): Promise<OwnerResult> {
       },
       body: JSON.stringify({
         model: MODEL,
-        instructions: OFFER_INSTRUCTIONS,
-        input: ownerInput(name, offer),
-        reasoning: { effort: 'low' },
-        // Kept small: five of these run at once, and the limit counts toward the rate limit.
+        instructions,
+        input,
+        reasoning: { effort: analysisEffort },
+        // Kept small: several of these run at once, and the limit counts toward the rate limit.
         max_output_tokens: 3000,
-        text: { format: { type: 'json_schema', name: 'owner_offer_analysis', schema: OFFER_SCHEMA, strict: true } },
+        text: { format: { type: 'json_schema', name, schema, strict: true } },
       }),
     })
     if (!res.ok) {
       const body = await res.text()
-      console.error(`OpenAI error (offer, ${name})`, res.status, body)
+      if (res.status === 400 && analysisEffort === 'minimal' && /reasoning|effort/i.test(body)) {
+        console.log(`Reasoning effort 'minimal' rejected; using 'low'. ${body.slice(0, 200)}`)
+        analysisEffort = 'low'
+        attempt-- // this one doesn't count as a try
+        continue
+      }
+      console.error(`OpenAI error (${label})`, res.status, body)
       error = `OpenAI ${res.status}: ${body.slice(0, 160)}`
       // Too many requests at once: wait a moment before the retry.
       if (res.status === 429) await new Promise((r) => setTimeout(r, 1500 + Math.random() * 1500))
@@ -409,14 +480,14 @@ async function analyzeOwner(name: string, offer: string): Promise<OwnerResult> {
     try {
       raw = JSON.parse(text)
     } catch {
-      console.error(`Unreadable offer analysis for ${name} (attempt ${attempt})`, JSON.stringify(data).slice(0, 2000))
-      error = `unreadable answer (${data.status || 'no status'}${data.incomplete_details?.reason ? `: ${data.incomplete_details.reason}` : ''})`
+      console.error(`Unreadable answer for ${label} (attempt ${attempt})`, JSON.stringify(data).slice(0, 2000))
+      error = `${label}: unreadable answer (${data.status || 'no status'}${data.incomplete_details?.reason ? `: ${data.incomplete_details.reason}` : ''})`
       continue
     }
-    const result = toOwnerContext(name, raw)
-    if (result.ok) return result
-    console.error(`Invalid offer analysis for ${name} (attempt ${attempt}): ${result.error}`)
-    error = result.error
+    const checked = check(raw)
+    if (checked.ok) return { ok: true, raw, value: checked.value }
+    console.error(`Invalid answer for ${label} (attempt ${attempt}): ${checked.error}`)
+    error = checked.error
   }
   return { ok: false, error }
 }

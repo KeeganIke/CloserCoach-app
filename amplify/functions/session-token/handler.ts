@@ -280,7 +280,7 @@ export const handler = async (event: FunctionUrlEvent) => {
     return json(401, { error: 'Wrong access code' })
   }
 
-  const offer = typeof body.offer === 'string' ? body.offer.trim().slice(0, 600) : ''
+  const offer = typeof body.offer === 'string' ? body.offer.trim().slice(0, 900) : ''
   if (!offer) {
     return json(400, { error: "Add what you're selling before you start a call." })
   }

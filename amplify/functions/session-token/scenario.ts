@@ -1,7 +1,8 @@
 // Builds one complete practice owner for a call from the lists in owners.ts:
 // who they are, how they act, what's going on in their business, and the
-// concerns that come from it. Pure code, no AI. The same scenario number always
-// rebuilds the same owner (for the same offer analysis), so a call can be replayed.
+// concerns that come from it. Pure code, no AI: the businesses come from the
+// offer analysis (shared/offer.ts). The same scenario number always rebuilds the
+// same owner for the same analysis, so a call can be replayed.
 
 import {
   BUSINESS_CONCERNS,
@@ -9,8 +10,6 @@ import {
   CONFLICTS,
   FACT_NEEDS,
   FACTS,
-  FALLBACK_GAPS,
-  FALLBACK_SETUPS,
   MOTIVATIONS,
   NEEDS_SITUATION,
   OWNERS,
@@ -23,16 +22,13 @@ import {
   type ConcernTypeId,
   type Fact,
   type Level,
-  type Owner,
   type PersonalityId,
   type Situation,
   type Trait,
 } from './owners'
 
-// What the offer analysis supplies for each owner's business (shared/offer.ts).
-// Without it, the builder uses general lists that fit most offers.
-import type { OfferContext, OwnerOfferContext } from '../shared/offer'
-export type { OfferContext, OwnerOfferContext }
+import type { Business, OfferContext } from '../shared/offer'
+export type { Business, OfferContext }
 
 export type Concern = {
   type: ConcernTypeId
@@ -48,7 +44,7 @@ export type Concern = {
 
 export type Scenario = {
   id: number
-  owner: Pick<Owner, 'name' | 'gender' | 'business' | 'industry' | 'detail' | 'background'>
+  owner: { name: string; gender: 'male' | 'female'; business: string; industry: string; detail: string; background: string }
   scene: string
   personality: { id: PersonalityId; label: string }
   traits: Record<Trait, Level>
@@ -62,7 +58,7 @@ export type Scenario = {
   concerns: Concern[]
 }
 
-export type RecentCall = { owner: string; personality: PersonalityId; concernTypes: ConcernTypeId[] }
+export type RecentCall = { owner: string; business?: string; personality: PersonalityId; concernTypes: ConcernTypeId[] } // business: its type
 
 // ---------- Seeded random numbers ----------
 
@@ -92,23 +88,29 @@ const fitsSituation = (f: Fact, situation: Situation) => !NEEDS_SITUATION[f.id] 
 
 // ---------- The builder ----------
 
-export function buildScenario(id: number, offer?: OfferContext): Scenario {
+export function buildScenario(id: number, offer: OfferContext): Scenario {
   const rand = seeded(id)
 
   const owner = pick(rand, OWNERS)
+  const business = pick(rand, offer.businesses)
   const personality = pick(rand, PERSONALITIES)
   const traits = Object.fromEntries(
     TRAITS.map((t) => [t, between(rand, personality.ranges[t][0], personality.ranges[t][1]) as Level]),
   ) as Record<Trait, Level>
   const situation: Situation = rand() < 0.5 ? 'no_solution' : 'has_setup'
-  const context = offer?.[owner.name]
+  // Facts this business can't support: fully booked needs a problem that isn't
+  // about customers, and loyalty to a vendor needs a setup run by someone outside.
+  const ruledOut = new Set([
+    ...(business.problems.some((p) => p.area !== 'customers') ? [] : ['fully_booked']),
+    ...(business.setups.some((x) => x.outside) ? [] : ['trusted_vendor']),
+  ])
 
   // Facts: one performance and one budget fact always; timing and trust sometimes.
   const facts: Fact[] = []
   const add = (group: Fact['group'], chance: number) => {
     if (rand() >= chance) return
     const options = FACTS.filter(
-      (f) => f.group === group && fitsSituation(f, situation) && !facts.some((g) => conflicts(f.id, g.id)),
+      (f) => f.group === group && !ruledOut.has(f.id) && fitsSituation(f, situation) && !facts.some((g) => conflicts(f.id, g.id)),
     )
     if (options.length) facts.push(pick(rand, options))
   }
@@ -120,16 +122,14 @@ export function buildScenario(id: number, offer?: OfferContext): Scenario {
 
   // Their setup (or how they get by). A trusted-vendor owner's setup is always
   // run by an outside company or person.
-  const setups = context?.setups.length ? context.setups : FALLBACK_SETUPS
-  const outsideOnly = has('trusted_vendor') && setups.some((x) => x.outside) ? setups.filter((x) => x.outside) : setups
+  const setups = has('trusted_vendor') ? business.setups.filter((x) => x.outside) : business.setups
   const setup =
     situation === 'has_setup'
-      ? (({ text, weakness }) => ({ text, weakness }))(pick(rand, outsideOnly))
-      : (({ text, gap }) => ({ text, weakness: gap }))(pick(rand, context?.gaps.length ? context.gaps : FALLBACK_GAPS))
+      ? (({ text, weakness }) => ({ text, weakness }))(pick(rand, setups))
+      : (({ text, gap }) => ({ text, weakness: gap }))(pick(rand, business.gaps))
 
   // Problems the product could solve; a fully booked owner never gets a "need more customers" one.
-  const usable = (list: OwnerOfferContext['problems']) => list.filter((p) => !(has('fully_booked') && p.area === 'customers'))
-  const pool = context && usable(context.problems).length ? usable(context.problems) : usable(owner.problems)
+  const pool = business.problems.filter((p) => !(has('fully_booked') && p.area === 'customers'))
   const first = pick(rand, pool)
   const others = pool.filter((p) => p.area !== first.area)
   const problems = [first.text, ...(others.length && rand() < 0.6 ? [pick(rand, others).text] : [])]
@@ -152,11 +152,11 @@ export function buildScenario(id: number, offer?: OfferContext): Scenario {
     .filter((n, i, all) => all.indexOf(n) === i)
     .slice(0, 3)
 
-  const concerns = pickConcerns(rand, { personality: personality.id, traits, situation, setup, facts, context })
+  const concerns = pickConcerns(rand, { personality: personality.id, traits, situation, setup, facts, context: business })
   // The analysis explains why this product raises a concern the owner already
   // has. It never adds a concern by itself.
   for (const c of concerns) {
-    const why = context?.reasons?.[c.type]
+    const why = business.reasons?.[c.type]
     if (why && !c.reason.includes(why)) c.reason = `${c.reason} ${why}`
   }
 
@@ -165,12 +165,12 @@ export function buildScenario(id: number, offer?: OfferContext): Scenario {
     owner: {
       name: owner.name,
       gender: owner.gender,
-      business: owner.business,
-      industry: owner.industry,
-      detail: owner.detail,
-      background: owner.background,
+      business: business.name,
+      industry: business.type,
+      detail: business.detail,
+      background: business.background,
     },
-    scene: pick(rand, owner.scenes),
+    scene: pick(rand, business.scenes),
     personality: { id: personality.id, label: personality.label },
     traits,
     situation,
@@ -202,7 +202,7 @@ function pickConcerns(
     situation: Situation
     setup: { text: string; weakness: string }
     facts: Fact[]
-    context?: OwnerOfferContext
+    context?: Business
   },
 ): Concern[] {
   const cautious = o.traits.skepticism === 4 || o.traits.openness === 1
@@ -314,20 +314,23 @@ export function validateScenario(s: Scenario): string[] {
 // ---------- Picking a scenario for a new call ----------
 
 // Picks a fresh scenario number that passes every check and doesn't repeat recent
-// calls: never the last owner, never a personality from the last 2 calls, and at
-// most one concern type shared with the last 3. Recent calls are newest first.
+// calls: never the last owner, never the last kind of business (when there's
+// more than one kind), never a personality from the last 2 calls, and at most one
+// concern type shared with the last 3. Recent calls are newest first.
 export function pickScenario({
   recent = [],
   offer,
   random = Math.random,
-}: { recent?: RecentCall[]; offer?: OfferContext; random?: () => number } = {}): Scenario {
+}: { recent?: RecentCall[]; offer: OfferContext; random?: () => number }): Scenario {
   const recentTypes = new Set(recent.slice(0, 3).flatMap((r) => r.concernTypes))
+  const kinds = new Set(offer.businesses.map((b) => b.type)).size
   let fallback: Scenario | null = null
   for (let attempt = 0; attempt < 60; attempt++) {
     const s = buildScenario(100000 + Math.floor(random() * 900000), offer)
     if (validateScenario(s).length) continue
     fallback ??= s
     if (recent[0] && s.owner.name === recent[0].owner) continue
+    if (kinds > 1 && recent[0]?.business && s.owner.industry === recent[0].business) continue
     if (recent.slice(0, 2).some((r) => r.personality === s.personality.id)) continue
     if (s.concerns.filter((c) => recentTypes.has(c.type)).length > 1) continue
     return s
