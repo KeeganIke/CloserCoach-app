@@ -6,7 +6,8 @@ import {
   INSTRUCTIONS as DETAIL_INSTRUCTIONS,
   PICK_INSTRUCTIONS,
   PICK_SCHEMA,
-  SCHEMA as DETAIL_SCHEMA,
+  CONCERNS_SCHEMA,
+  SITUATION_SCHEMA,
   businessInput,
   normalizeOffer,
   normalizePickFields,
@@ -29,6 +30,9 @@ const MAX_CHARS = 30000
 const MAX_ATTEMPTS = 2 // one retry when the model's output doesn't validate
 const MAX_OFFER_CHARS = 900 // the offer's fields joined into one text
 const ANALYSIS_ATTEMPTS = 3 // per request, for the offer analysis
+// The offer analysis is fill-in-the-blanks work, so it uses the smaller, faster
+// model with reasoning off. The grader keeps the bigger model.
+const ANALYSIS_MODEL = 'gpt-6-luna'
 
 type Persona = { name?: string; business?: string; detail?: string }
 
@@ -419,16 +423,22 @@ async function pickBusinesses(offer: PickFields) {
   return askModel(PICK_INSTRUCTIONS, pickInput(offer), PICK_SCHEMA, 'pick_businesses', 'picking businesses', toIdentities)
 }
 
+// Writes the two halves of a business at the same time, then joins and checks them.
 async function describeBusiness(b: BusinessIdentity, offer: OfferFields) {
-  return askModel(DETAIL_INSTRUCTIONS, businessInput(b, offer), DETAIL_SCHEMA, 'business_details', b.type, (raw) =>
-    toBusinessDetails(b.type, raw),
-  )
+  const input = businessInput(b, offer)
+  const [situation, concerns] = await Promise.all([
+    askModel(DETAIL_INSTRUCTIONS, input, SITUATION_SCHEMA, 'business_situation', `${b.type} (situation)`),
+    askModel(DETAIL_INSTRUCTIONS, input, CONCERNS_SCHEMA, 'business_concerns', `${b.type} (concerns)`),
+  ])
+  if (!situation.ok) return situation
+  if (!concerns.ok) return concerns
+  // The situation half decides the fit; the concerns half only adds a fit concern for a partial fit.
+  return toBusinessDetails(b.type, { ...(concerns.raw as object), ...(situation.raw as object) })
 }
 
-// The analysis is fill-in-the-blanks work, so it asks for as little reasoning as
-// the model allows. If the model rejects that setting, fall back to 'low' for
-// the rest of this server's life.
-let analysisEffort: 'minimal' | 'low' = 'minimal'
+// Reasoning off for speed. If the model ever rejects that setting, fall back to
+// 'low' for the rest of this server's life.
+let analysisEffort: 'none' | 'low' = 'none'
 
 type Asked<T> = { ok: true; raw: unknown; value: T } | { ok: false; error: string }
 
@@ -450,7 +460,7 @@ async function askModel<T = unknown>(
         'Content-Type': 'application/json',
       },
       body: JSON.stringify({
-        model: MODEL,
+        model: ANALYSIS_MODEL,
         instructions,
         input,
         reasoning: { effort: analysisEffort },
@@ -461,8 +471,8 @@ async function askModel<T = unknown>(
     })
     if (!res.ok) {
       const body = await res.text()
-      if (res.status === 400 && analysisEffort === 'minimal' && /reasoning|effort/i.test(body)) {
-        console.log(`Reasoning effort 'minimal' rejected; using 'low'. ${body.slice(0, 200)}`)
+      if (res.status === 400 && analysisEffort === 'none' && /reasoning|effort/i.test(body)) {
+        console.log(`Reasoning effort 'none' rejected; using 'low'. ${body.slice(0, 200)}`)
         analysisEffort = 'low'
         attempt-- // this one doesn't count as a try
         continue

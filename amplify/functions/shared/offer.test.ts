@@ -3,7 +3,9 @@ import assert from 'node:assert/strict'
 import { CONCERN_TYPES } from '../session-token/owners'
 import { SAMPLE_BUSINESSES } from '../session-token/sampleBusinesses'
 import {
+  CONCERNS_SCHEMA,
   SCHEMA,
+  SITUATION_SCHEMA,
   normalizeOffer,
   offerText,
   openOfferContext,
@@ -127,4 +129,14 @@ test('businesses picked ahead are reused by the save, with nothing described yet
   assert.equal(r.done.length, 0)
   assert.equal(openOfferContext(sealed, OFFER, 'key-1'), null) // not usable for a call by itself
   assert.equal(reusable(sealed, { ...OFFER, audience: 'Dentists' }, 'key-1').picks, null)
+})
+
+test('the two halves of a business together ask for every field', () => {
+  const asked = new Set([...SITUATION_SCHEMA.required, ...CONCERNS_SCHEMA.required])
+  assert.deepEqual([...asked].sort(), [...SCHEMA.required].sort())
+  // Joined halves pass the same checks as one whole answer.
+  const whole = details()
+  const situation = Object.fromEntries(SITUATION_SCHEMA.required.map((k) => [k, (whole as Record<string, unknown>)[k]]))
+  const concerns = Object.fromEntries(CONCERNS_SCHEMA.required.map((k) => [k, (whole as Record<string, unknown>)[k]]))
+  assert.deepEqual(toBusinessDetails('x', { ...concerns, ...situation }), toBusinessDetails('x', whole))
 })
