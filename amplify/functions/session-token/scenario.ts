@@ -29,14 +29,10 @@ import {
   type Trait,
 } from './owners'
 
-// What the offer analysis (step 2) supplies for one owner's business. Without it,
-// the builder uses general lists that fit most offers.
-export type OwnerOfferContext = {
-  setups: { text: string; weakness: string; outside: boolean }[] // outside: run by another company or person
-  gaps: { text: string; gap: string }[]
-  problems: { area: 'customers' | 'time' | 'money' | 'reputation'; text: string }[]
-}
-export type OfferContext = Record<string, OwnerOfferContext> // keyed by owner name
+// What the offer analysis supplies for each owner's business (shared/offer.ts).
+// Without it, the builder uses general lists that fit most offers.
+import type { OfferContext, OwnerOfferContext } from '../shared/offer'
+export type { OfferContext, OwnerOfferContext }
 
 export type Concern = {
   type: ConcernTypeId
@@ -156,7 +152,13 @@ export function buildScenario(id: number, offer?: OfferContext): Scenario {
     .filter((n, i, all) => all.indexOf(n) === i)
     .slice(0, 3)
 
-  const concerns = pickConcerns(rand, { personality: personality.id, traits, situation, setup, facts })
+  const concerns = pickConcerns(rand, { personality: personality.id, traits, situation, setup, facts, context })
+  // The analysis explains why this product raises a concern the owner already
+  // has. It never adds a concern by itself.
+  for (const c of concerns) {
+    const why = context?.reasons?.[c.type]
+    if (why && !c.reason.includes(why)) c.reason = `${c.reason} ${why}`
+  }
 
   return {
     id,
@@ -194,7 +196,14 @@ function makeConcern(rand: Rand, type: ConcernTypeId, angles: string[], reason: 
 // 1–2 concerns and at most one major.
 function pickConcerns(
   rand: Rand,
-  o: { personality: PersonalityId; traits: Record<Trait, Level>; situation: Situation; setup: { text: string; weakness: string }; facts: Fact[] },
+  o: {
+    personality: PersonalityId
+    traits: Record<Trait, Level>
+    situation: Situation
+    setup: { text: string; weakness: string }
+    facts: Fact[]
+    context?: OwnerOfferContext
+  },
 ): Concern[] {
   const cautious = o.traits.skepticism === 4 || o.traits.openness === 1
   const max = cautious ? 3 : 2
@@ -217,6 +226,11 @@ function pickConcerns(
     const b = BUSINESS_CONCERNS[f.id]
     if (b) offer(b.type, b.angles, f.text, b.major)
   }
+  // Concerns that exist only because of the product: an awkward fit for this
+  // business, or something that has to work with tools they already use. Always
+  // minor, and just one more candidate among the business concerns.
+  if (o.context?.fitConcern) offer('fit', [o.context.fitConcern.angle], o.context.fitConcern.reason, false)
+  if (o.context?.toolsConcern) offer('compatibility', [o.context.toolsConcern.angle], o.context.toolsConcern.reason, false)
   // Majors first, and loyalty to a long-time vendor ahead of other majors.
   const majors = shuffled(rand, [...byType].filter(([, c]) => c.major))
   majors.sort(([a], [b]) => Number(b === 'current') - Number(a === 'current'))

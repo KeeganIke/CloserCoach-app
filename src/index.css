@@ -1828,6 +1828,28 @@ p.hint {
   color: var(--mixed);
 }
 
+.save-state.working {
+  color: var(--muted);
+}
+
+.save-state .text-button {
+  margin-left: 4px;
+}
+
+.pulse-dot {
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  background: var(--accent);
+  animation: pulse 1.4s ease-in-out infinite;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .pulse-dot {
+    animation: none;
+  }
+}
+
 .alert {
   display: flex;
   align-items: flex-start;

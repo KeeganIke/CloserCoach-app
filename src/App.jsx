@@ -8,6 +8,7 @@ import MyProgress from './Progress.jsx'
 import Icon, { Logo } from './icons.jsx'
 import Dashboard, { CallTable, Overview, RANGES, StatCards, coachingFocus, formatDate } from './Dashboard.jsx'
 import { clearHistory, deleteCall, loadHistory, saveCall } from './history.js'
+import { analyzeOffer, loadAnalysis } from './offerAnalysis.js'
 import { MAX_CALL_SECONDS, REPORT_URL, TOKEN_URL } from './config.js'
 
 const CODE_KEY = 'closer-coach-access-code'
@@ -178,7 +179,7 @@ const OFFER_EXAMPLE = 'e.g. I build websites for local businesses. $77/month, fu
 
 // The offer box used on both the Practice and Settings pages. A saved offer shows
 // as a short summary with an Edit link; editing opens the text box.
-function OfferEditor({ offer, savedOffer, onChange, onSave, compact = false }) {
+function OfferEditor({ offer, savedOffer, onChange, onSave, analysis, onRetry, compact = false }) {
   const [editing, setEditing] = useState(!savedOffer)
   const unsaved = offer !== savedOffer
 
@@ -192,9 +193,7 @@ function OfferEditor({ offer, savedOffer, onChange, onSave, compact = false }) {
             Edit
           </button>
         </div>
-        <span className="save-state saved">
-          <Icon name="check" /> Saved
-        </span>
+        <OwnersStatus analysis={analysis} onRetry={onRetry} />
       </div>
     )
   }
@@ -246,6 +245,32 @@ function OfferEditor({ offer, savedOffer, onChange, onSave, compact = false }) {
         </div>
       </div>
     </div>
+  )
+}
+
+// Under a saved offer: whether the owners have been tailored to it yet.
+function OwnersStatus({ analysis, onRetry }) {
+  if (analysis?.status === 'loading') {
+    return (
+      <span className="save-state working" role="status">
+        <span className="pulse-dot" aria-hidden="true" /> Saved. Getting your owners ready…
+      </span>
+    )
+  }
+  if (analysis?.status === 'error') {
+    return (
+      <span className="save-state unsaved" role="status">
+        Saved, but the owners aren't tailored to it yet.
+        <button type="button" className="text-button" onClick={onRetry}>
+          Try again
+        </button>
+      </span>
+    )
+  }
+  return (
+    <span className="save-state saved" role="status">
+      <Icon name="check" /> {analysis?.status === 'ready' ? 'Saved. Owners ready' : 'Saved'}
+    </span>
   )
 }
 
@@ -327,6 +352,9 @@ function App() {
   const [reportError, setReportError] = useState('')
   const [offer, setOffer] = useState(() => readStored(OFFER_KEY, ''))
   const [savedOffer, setSavedOffer] = useState(() => readStored(OFFER_KEY, ''))
+  // idle | loading | ready | error: the owners tailored to the saved offer.
+  const [analysis, setAnalysis] = useState(() => ({ status: loadAnalysis(readStored(OFFER_KEY, '')) ? 'ready' : 'idle' }))
+  const analyzing = useRef('') // the offer being analyzed, so a stale answer is ignored
   const [history, setHistory] = useState(loadHistory)
   const [openCall, setOpenCall] = useState(null) // a saved call being reread
   const [range, setRange] = useState('30')
@@ -348,6 +376,32 @@ function App() {
     const t = setTimeout(() => setToast(''), 2600)
     return () => clearTimeout(t)
   }, [toast])
+
+  const prepareOwners = async (text) => {
+    analyzing.current = text
+    setAnalysis({ status: 'loading' })
+    try {
+      await analyzeOffer({ reportUrl: REPORT_URL, accessCode, offer: text })
+      if (analyzing.current === text) setAnalysis({ status: 'ready' })
+    } catch (err) {
+      if (analyzing.current === text) setAnalysis({ status: 'error', error: err.message })
+    }
+  }
+
+  // Tailor the owners whenever there's a saved offer without an analysis.
+  // Calls still work without one; owners then use general setups and problems.
+  useEffect(() => {
+    if (!savedOffer.trim() || loadAnalysis(savedOffer)) {
+      analyzing.current = ''
+      setAnalysis({ status: savedOffer.trim() ? 'ready' : 'idle' })
+      return
+    }
+    if (!codeSaved || !accessCode) {
+      setAnalysis({ status: 'idle' })
+      return
+    }
+    prepareOwners(savedOffer)
+  }, [savedOffer, codeSaved])
 
   const saveOffer = () => {
     store(OFFER_KEY, offer)
@@ -656,7 +710,14 @@ function App() {
                 <h2 className="card-title">
                   <Icon name="target" /> Your offer
                 </h2>
-                <OfferEditor offer={offer} savedOffer={savedOffer} onChange={setOffer} onSave={saveOffer} />
+                <OfferEditor
+                  offer={offer}
+                  savedOffer={savedOffer}
+                  onChange={setOffer}
+                  onSave={saveOffer}
+                  analysis={analysis}
+                  onRetry={() => prepareOwners(savedOffer)}
+                />
               </section>
 
               <form className="dial-card start-box" onSubmit={handleStart}>
@@ -798,7 +859,15 @@ function App() {
                 <h2>Your offer</h2>
                 <p>{OFFER_HELP}</p>
               </div>
-              <OfferEditor offer={offer} savedOffer={savedOffer} onChange={setOffer} onSave={saveOffer} compact />
+              <OfferEditor
+                offer={offer}
+                savedOffer={savedOffer}
+                onChange={setOffer}
+                onSave={saveOffer}
+                analysis={analysis}
+                onRetry={() => prepareOwners(savedOffer)}
+                compact
+              />
             </section>
 
             <section className="card setting">

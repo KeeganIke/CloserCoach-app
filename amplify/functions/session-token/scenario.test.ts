@@ -55,12 +55,9 @@ test('a fully booked owner never gets a "need more customers" problem or motivat
 })
 
 test('every concern type, owner, personality and situation shows up', () => {
-  const types = new Set(all.flatMap((s) => s.concerns.map((c) => c.type)))
-  // Types tied only to the offer (compatibility, fit) arrive in step 2.
-  for (const t of Object.keys(CONCERN_TYPES)) {
-    if (t === 'compatibility' || t === 'fit') continue
-    assert.ok(types.has(t as never), `${t} never appeared`)
-  }
+  // fit and compatibility come only from an offer analysis.
+  const types = new Set([...all, ...IDS.map((id) => buildScenario(id, productOffer))].flatMap((s) => s.concerns.map((c) => c.type)))
+  for (const t of Object.keys(CONCERN_TYPES)) assert.ok(types.has(t as never), `${t} never appeared`)
   for (const o of OWNERS) assert.ok(all.some((s) => s.owner.name === o.name))
   for (const p of PERSONALITIES) {
     const share = all.filter((s) => s.personality.id === p.id).length / all.length
@@ -108,6 +105,41 @@ test('offer analysis supplies the setup and problems when it exists', () => {
     assert.ok(s.problems.every((p) => p.startsWith('TEST')))
     assert.deepEqual(validateScenario(s), [])
   }
+})
+
+// An analysis where the product fits awkwardly and has to work with existing tools.
+const productOffer: OfferContext = Object.fromEntries(
+  OWNERS.map((o) => [
+    o.name,
+    {
+      fit: 'partial',
+      setups: FALLBACK_SETUPS,
+      gaps: [{ text: 'you handle it yourself', gap: 'it slips on busy days' }],
+      problems: o.problems,
+      reasons: { price: 'PRODUCT price reason.', need: 'PRODUCT need reason.' },
+      fitConcern: { angle: 'too_small', reason: 'PRODUCT fit reason.' },
+      toolsConcern: { angle: 'tools', reason: 'PRODUCT tools reason.' },
+    },
+  ]),
+)
+
+test('product concerns are minor and rare, and product reasons only explain concerns the owner already has', () => {
+  const built = IDS.map((id) => buildScenario(id, productOffer))
+  for (const s of built) {
+    assert.deepEqual(validateScenario(s), [], `scenario ${s.id}`)
+    for (const c of s.concerns) {
+      if (c.type === 'fit' || c.type === 'compatibility') assert.equal(c.major, false)
+      if (c.type === 'price') assert.ok(c.reason.includes('PRODUCT price reason.'))
+      if (c.type !== 'price' && c.type !== 'need') assert.ok(!/PRODUCT (price|need)/.test(c.reason))
+    }
+  }
+  const share = (t: string) => built.filter((s) => s.concerns.some((c) => c.type === t)).length / built.length
+  assert.ok(share('fit') < 0.3 && share('compatibility') < 0.3, `fit ${share('fit')}, tools ${share('compatibility')}`)
+})
+
+test('without an analysis, the same number builds the same owner as before', () => {
+  // Product concerns only change the draw when an analysis exists.
+  for (const id of IDS.slice(0, 50)) assert.deepEqual(buildScenario(id, {}), buildScenario(id))
 })
 
 test('Old School always believes what they have works', () => {
