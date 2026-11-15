@@ -248,6 +248,15 @@ function OfferEditor({ offer, savedOffer, onChange, onSave, analysis, onRetry, c
   )
 }
 
+const OWNER_COUNT = 5
+
+// What the offer card shows for a saved analysis result (or none).
+function analysisState(result) {
+  if (!result) return { status: 'idle' }
+  if (result.missing?.length) return { status: 'partial', missing: result.missing, error: result.detail }
+  return { status: 'ready' }
+}
+
 // Under a saved offer: whether the owners have been tailored to it yet.
 function OwnersStatus({ analysis, onRetry }) {
   if (analysis?.status === 'loading') {
@@ -257,10 +266,22 @@ function OwnersStatus({ analysis, onRetry }) {
       </span>
     )
   }
+  if (analysis?.status === 'partial') {
+    return (
+      <span className="save-state unsaved" role="status">
+        Saved. {OWNER_COUNT - analysis.missing.length} of {OWNER_COUNT} owners ready.
+        {analysis.error && <span className="status-detail"> ({analysis.error})</span>}
+        <button type="button" className="text-button" onClick={onRetry}>
+          Try again
+        </button>
+      </span>
+    )
+  }
   if (analysis?.status === 'error') {
     return (
       <span className="save-state unsaved" role="status">
         Saved, but the owners aren't tailored to it yet.
+        {analysis.error && <span className="status-detail"> ({analysis.error})</span>}
         <button type="button" className="text-button" onClick={onRetry}>
           Try again
         </button>
@@ -352,8 +373,8 @@ function App() {
   const [reportError, setReportError] = useState('')
   const [offer, setOffer] = useState(() => readStored(OFFER_KEY, ''))
   const [savedOffer, setSavedOffer] = useState(() => readStored(OFFER_KEY, ''))
-  // idle | loading | ready | error: the owners tailored to the saved offer.
-  const [analysis, setAnalysis] = useState(() => ({ status: loadAnalysis(readStored(OFFER_KEY, '')) ? 'ready' : 'idle' }))
+  // idle | loading | ready | partial | error: the owners tailored to the saved offer.
+  const [analysis, setAnalysis] = useState(() => analysisState(loadAnalysis(readStored(OFFER_KEY, ''))))
   const analyzing = useRef('') // the offer being analyzed, so a stale answer is ignored
   const [history, setHistory] = useState(loadHistory)
   const [openCall, setOpenCall] = useState(null) // a saved call being reread
@@ -381,19 +402,21 @@ function App() {
     analyzing.current = text
     setAnalysis({ status: 'loading' })
     try {
-      await analyzeOffer({ reportUrl: REPORT_URL, accessCode, offer: text })
-      if (analyzing.current === text) setAnalysis({ status: 'ready' })
+      const result = await analyzeOffer({ reportUrl: REPORT_URL, accessCode, offer: text })
+      if (analyzing.current === text) setAnalysis(analysisState(result))
     } catch (err) {
-      if (analyzing.current === text) setAnalysis({ status: 'error', error: err.message })
+      if (analyzing.current === text) setAnalysis({ status: 'error', error: err.detail || err.message })
     }
   }
 
   // Tailor the owners whenever there's a saved offer without an analysis.
   // Calls still work without one; owners then use general setups and problems.
+  // A partial one (some owners failed earlier) picks up where it left off.
   useEffect(() => {
-    if (!savedOffer.trim() || loadAnalysis(savedOffer)) {
+    const saved = loadAnalysis(savedOffer)
+    if (!savedOffer.trim() || (saved && !saved.missing.length)) {
       analyzing.current = ''
-      setAnalysis({ status: savedOffer.trim() ? 'ready' : 'idle' })
+      setAnalysis(analysisState(saved))
       return
     }
     if (!codeSaved || !accessCode) {

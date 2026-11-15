@@ -1,7 +1,7 @@
 import { test } from 'node:test'
 import assert from 'node:assert/strict'
 import { CONCERN_TYPES, OWNERS } from '../session-token/owners'
-import { SCHEMA, openOfferContext, sealOfferContext, toOfferContext, type OwnerOfferContext } from './offer'
+import { SCHEMA, openOfferContext, sealOfferContext, toOfferContext, toOwnerContext, type OwnerOfferContext } from './offer'
 
 const REASON_TYPES = Object.keys(CONCERN_TYPES).filter((t) => t !== 'fit' && t !== 'compatibility')
 
@@ -48,20 +48,23 @@ test('a good answer becomes a context for every owner, cleaned up for sentences'
   }
 })
 
-test('a missing owner, or empty lists, are rejected', () => {
+test('a missing owner, or nothing usable in a list, is rejected', () => {
   const a = answer()
   delete a.Dave
   assert.equal(toOfferContext(a).ok, false)
-  for (const bad of [{ setups: [] }, { gaps: [] }, { problems: [] }, { setups: [{ text: '', weakness: 'x', outside: true }, { text: 'y', weakness: 'z', outside: true }] }])
+  for (const bad of [{ setups: [] }, { gaps: [] }, { problems: [] }, { setups: [{ text: '', weakness: 'x', outside: true }] }])
     assert.equal(toOfferContext(answer(bad)).ok, false, JSON.stringify(bad))
   for (const junk of [null, undefined, {}, 'text']) assert.equal(toOfferContext(junk as never).ok, false)
 })
 
-test('every owner needs an outside setup and a problem that is not about customers', () => {
-  const noOutside = answer({ setups: [{ text: 'a', weakness: 'b', outside: false }, { text: 'c', weakness: 'd', outside: false }] })
-  assert.equal(toOfferContext(noOutside).ok, false)
-  const onlyCustomers = answer({ problems: [{ area: 'customers', text: 'a' }, { area: 'customers', text: 'b' }] })
-  assert.equal(toOfferContext(onlyCustomers).ok, false)
+test('one bad item is dropped instead of failing the owner', () => {
+  const r = toOwnerContext('Dave', answer({
+    setups: [{ text: '', weakness: 'x', outside: true }, { text: 'you do it yourself', weakness: 'it slips', outside: false }],
+    problems: [{ area: 'nonsense', text: 'a' }, { area: 'customers', text: 'loses callers to the next shop' }],
+  }).Dave)
+  assert.ok(r.ok)
+  assert.equal(r.value.setups.length, 1)
+  assert.deepEqual(r.value.problems, [{ area: 'customers', text: 'loses callers to the next shop' }])
 })
 
 test('a fit concern only comes with a partial fit, and only with a real angle', () => {

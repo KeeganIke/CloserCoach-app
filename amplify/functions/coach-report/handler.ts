@@ -3,7 +3,7 @@
 
 import { openHidden, type Hidden } from '../shared/hidden'
 import { OWNERS } from '../session-token/owners'
-import { INSTRUCTIONS as OFFER_INSTRUCTIONS, SCHEMA as OFFER_SCHEMA, ownerInput, sealOfferContext, toOwnerContext, type OfferContext } from '../shared/offer'
+import { INSTRUCTIONS as OFFER_INSTRUCTIONS, SCHEMA as OFFER_SCHEMA, openOfferContext, ownerInput, sealOfferContext, toOwnerContext, type OfferContext, type OwnerOfferContext } from '../shared/offer'
 import { AI_CATEGORIES, answerStats, buildReport, termsOutsideOffer, MIN_REP_TURNS, OUTCOMES, RATINGS, VERDICTS, countRepTurns, type Line } from './grading'
 
 const MODEL = 'gpt-6.1-sol'
@@ -11,6 +11,7 @@ const MAX_LINES = 200
 const MAX_CHARS = 30000
 const MAX_ATTEMPTS = 2 // one retry when the model's output doesn't validate
 const MAX_OFFER_CHARS = 600
+const OWNER_ATTEMPTS = 3 // per owner, for the offer analysis
 
 type Persona = { name?: string; business?: string; detail?: string }
 
@@ -248,7 +249,7 @@ export const handler = async (event: FunctionUrlEvent) => {
     return json(405, { error: 'Method not allowed' })
   }
 
-  let body: { action?: string; accessCode?: string; persona?: Persona; lines?: Line[]; offer?: string; hidden?: string } = {}
+  let body: { action?: string; previous?: string; accessCode?: string; persona?: Persona; lines?: Line[]; offer?: string; hidden?: string } = {}
   try {
     const raw = event.isBase64Encoded ? Buffer.from(event.body || '', 'base64').toString() : event.body
     body = JSON.parse(raw || '{}')
@@ -262,7 +263,7 @@ export const handler = async (event: FunctionUrlEvent) => {
     return json(401, { error: 'Wrong access code' })
   }
 
-  if (body.action === 'analyze-offer') return analyzeOffer(body.offer)
+  if (body.action === 'analyze-offer') return analyzeOffer(body.offer, body.previous)
 
   const lines = (Array.isArray(body.lines) ? body.lines.slice(0, MAX_LINES) : []).filter(
     (l) => typeof l?.text === 'string' && l.text.trim(),
@@ -340,20 +341,43 @@ export const handler = async (event: FunctionUrlEvent) => {
 // setups, problems and concern reasons for that product. Runs once each time the
 // offer is saved; the browser keeps the sealed result for its calls. The five
 // owners run at the same time, so the wait is about one owner's worth.
-async function analyzeOffer(rawOffer: unknown) {
+async function analyzeOffer(rawOffer: unknown, previous: unknown) {
   const offer = typeof rawOffer === 'string' ? rawOffer.trim().slice(0, MAX_OFFER_CHARS) : ''
   if (!offer) return json(400, { error: "Add what you're selling first." })
+  const secret = process.env.OPENAI_API_KEY || ''
+
+  // A retry sends back the earlier result, so only the owners that failed run again.
+  const done: OfferContext = openOfferContext(previous, offer, secret) ?? {}
+  const todo = OWNERS.filter((o) => !done[o.name])
 
   const started = Date.now()
-  const results = await Promise.all(OWNERS.map((o) => analyzeOwner(o.name, offer)))
-  console.log(`Offer analysis took ${Date.now() - started} ms`)
-  if (results.some((r) => !r)) return json(502, { error: "Couldn't get your owners ready" })
-  const context: OfferContext = Object.fromEntries(OWNERS.map((o, i) => [o.name, results[i]!]))
-  return json(200, { analysis: sealOfferContext(offer, context, process.env.OPENAI_API_KEY || '') })
+  const results = await Promise.all(todo.map((o) => analyzeOwner(o.name, offer)))
+  const context: OfferContext = { ...done }
+  todo.forEach((o, i) => {
+    const r = results[i]
+    if (r.ok) context[o.name] = r.value
+  })
+  const missing = OWNERS.filter((o) => !context[o.name]).map((o) => o.name)
+  const failure = results.find((r) => !r.ok)
+  console.log(`Offer analysis took ${Date.now() - started} ms for ${todo.length} owners; missing: ${missing.join(', ') || 'none'}`)
+  if (failure && !failure.ok) console.error(`Offer analysis failure: ${failure.error}`)
+
+  if (!Object.keys(context).length) {
+    return json(502, { error: "Couldn't get your owners ready", detail: failure && !failure.ok ? failure.error : '' })
+  }
+  // Owners still missing use the general lists on calls until a retry fills them in.
+  return json(200, {
+    analysis: sealOfferContext(offer, context, secret),
+    missing,
+    detail: missing.length && failure && !failure.ok ? failure.error : '',
+  })
 }
 
-async function analyzeOwner(name: string, offer: string) {
-  for (let attempt = 1; attempt <= MAX_ATTEMPTS; attempt++) {
+type OwnerResult = { ok: true; value: OwnerOfferContext } | { ok: false; error: string }
+
+async function analyzeOwner(name: string, offer: string): Promise<OwnerResult> {
+  let error = 'no answer'
+  for (let attempt = 1; attempt <= OWNER_ATTEMPTS; attempt++) {
     const res = await fetch('https://api.openai.com/v1/responses', {
       method: 'POST',
       headers: {
@@ -365,12 +389,17 @@ async function analyzeOwner(name: string, offer: string) {
         instructions: OFFER_INSTRUCTIONS,
         input: ownerInput(name, offer),
         reasoning: { effort: 'low' },
-        max_output_tokens: 6000,
+        // Kept small: five of these run at once, and the limit counts toward the rate limit.
+        max_output_tokens: 3000,
         text: { format: { type: 'json_schema', name: 'owner_offer_analysis', schema: OFFER_SCHEMA, strict: true } },
       }),
     })
     if (!res.ok) {
-      console.error(`OpenAI error (offer, ${name})`, res.status, await res.text())
+      const body = await res.text()
+      console.error(`OpenAI error (offer, ${name})`, res.status, body)
+      error = `OpenAI ${res.status}: ${body.slice(0, 160)}`
+      // Too many requests at once: wait a moment before the retry.
+      if (res.status === 429) await new Promise((r) => setTimeout(r, 1500 + Math.random() * 1500))
       continue
     }
     const data = await res.json()
@@ -381,11 +410,13 @@ async function analyzeOwner(name: string, offer: string) {
       raw = JSON.parse(text)
     } catch {
       console.error(`Unreadable offer analysis for ${name} (attempt ${attempt})`, JSON.stringify(data).slice(0, 2000))
+      error = `unreadable answer (${data.status || 'no status'}${data.incomplete_details?.reason ? `: ${data.incomplete_details.reason}` : ''})`
       continue
     }
     const result = toOwnerContext(name, raw)
-    if (result.ok) return result.value
+    if (result.ok) return result
     console.error(`Invalid offer analysis for ${name} (attempt ${attempt}): ${result.error}`)
+    error = result.error
   }
-  return null
+  return { ok: false, error }
 }

@@ -161,29 +161,27 @@ export function toOwnerContext(name: string, raw: unknown): Checked<OwnerOfferCo
     text: clause(s?.text),
     weakness: clause(s?.weakness),
     outside: s?.outside === true,
-  }))
-  if (setups.length < 2 || setups.some((s: { text: string; weakness: string }) => !fits(s.text) || !fits(s.weakness)))
-    return { ok: false, error: `${name}: bad setups` }
-  if (!setups.some((s: { outside: boolean }) => s.outside)) return { ok: false, error: `${name}: no outside setup` }
+  })).filter((s: { text: string; weakness: string }) => fits(s.text) && fits(s.weakness))
+  // With no outside setup, a trusted-vendor owner just uses any setup (scenario.ts).
+  if (!setups.length) return { ok: false, error: `${name}: no usable setups` }
 
-  const gaps = (Array.isArray(x.gaps) ? x.gaps : []).map((g: Record<string, unknown>) => ({ text: clause(g?.text), gap: clause(g?.gap) }))
-  if (!gaps.length || gaps.some((g: { text: string; gap: string }) => !fits(g.text) || !fits(g.gap))) return { ok: false, error: `${name}: bad gaps` }
+  const gaps = (Array.isArray(x.gaps) ? x.gaps : [])
+    .map((g: Record<string, unknown>) => ({ text: clause(g?.text), gap: clause(g?.gap) }))
+    .filter((g: { text: string; gap: string }) => fits(g.text) && fits(g.gap))
+  if (!gaps.length) return { ok: false, error: `${name}: no usable gaps` }
 
   const problems = (Array.isArray(x.problems) ? x.problems : []).map((p: Record<string, unknown>) => ({
     area: p?.area as Area,
     text: clause(p?.text),
-  }))
-  if (problems.length < 2 || problems.some((p: { area: Area; text: string }) => !AREAS.includes(p.area) || !fits(p.text)))
-    return { ok: false, error: `${name}: bad problems` }
-  // A fully booked owner can only use problems that aren't about getting customers.
-  if (!problems.some((p: { area: Area }) => p.area !== 'customers')) return { ok: false, error: `${name}: only customer problems` }
+  })).filter((p: { area: Area; text: string }) => AREAS.includes(p.area) && fits(p.text))
+  // A fully booked owner with only customer problems falls back to the owner's own list (scenario.ts).
+  if (!problems.length) return { ok: false, error: `${name}: no usable problems` }
 
   const reasons: Partial<Record<ConcernTypeId, string>> = {}
   for (const t of REASON_TYPES) {
     const r = sentence(x.reasons?.[t])
     if (fits(r)) reasons[t] = r
   }
-  if (Object.keys(reasons).length < REASON_TYPES.length / 2) return { ok: false, error: `${name}: too few reasons` }
 
   const fit = x.fit === 'partial' ? 'partial' : 'strong'
   const extra = (field: unknown, type: ConcernTypeId) => {
