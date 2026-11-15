@@ -372,20 +372,22 @@ export const SITUATION_CONCERNS: Record<Situation, ConcernPick> = {
 // Personality can add one minor concern on top, with this chance.
 export const PERSONALITY_CONCERNS: Record<
   PersonalityId,
-  ConcernPick & { chance: number; reason: string; bySituation?: Partial<Record<Situation, ConcernPick>> }
+  ConcernPick & { chance: number; reason: string; bySituation?: Partial<Record<Situation, ConcernPick & { reason?: string }>> }
 > = {
   skeptic: { type: 'trust', angles: ['too_good', 'who'], chance: 0.7, reason: 'You doubt big claims from salespeople.' },
   busy: { type: 'time', angles: ['quick', 'slammed'], chance: 0.6, reason: "You're short on time and want the point fast." },
   friendly: { type: 'commitment', angles: ['not_today', 'try_first'], chance: 0.4, reason: 'You like to sleep on decisions.' },
   analytical: { type: 'payoff', angles: ['numbers'], chance: 1, reason: 'You always want the specifics before you believe something.' },
   // Old School always believes what they have works. With no setup, that becomes
-  // "we've always done fine without it."
+  // "word of mouth has been fine so far."
   old_school: {
     type: 'current',
     angles: ['happy_enough'],
     chance: 1,
     reason: "What you have works, and you've always done it this way.",
-    bySituation: { no_solution: { type: 'need', angles: ['fine', 'word_of_mouth'] } },
+    bySituation: {
+      no_solution: { type: 'need', angles: ['word_of_mouth', 'fine'], reason: "You've done fine on word of mouth and the way you've always done things." },
+    },
   },
   penny_pincher: { type: 'price', angles: ['sticker', 'value'], chance: 0.8, reason: 'You question every expense.' },
 }

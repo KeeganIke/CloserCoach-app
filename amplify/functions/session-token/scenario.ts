@@ -58,7 +58,13 @@ export type Scenario = {
   concerns: Concern[]
 }
 
-export type RecentCall = { owner: string; business?: string; personality: PersonalityId; concernTypes: ConcernTypeId[] } // business: its type
+export type RecentCall = {
+  owner: string
+  business?: string // its kind ("plumbing company")
+  businessName?: string // the business itself ("Summit Plumbing")
+  personality: PersonalityId
+  concernTypes: ConcernTypeId[]
+}
 
 // ---------- Seeded random numbers ----------
 
@@ -183,6 +189,9 @@ export function buildScenario(id: number, offer: OfferContext): Scenario {
   }
 }
 
+// How often the business gives a second concern (when it has one to give).
+const SECOND_BUSINESS_CONCERN = 0.5
+
 function makeConcern(rand: Rand, type: ConcernTypeId, angles: string[], reason: string, major: boolean, source: Concern['source']): Concern {
   const t = CONCERN_TYPES[type]
   const angleId = pick(rand, angles)
@@ -190,10 +199,11 @@ function makeConcern(rand: Rand, type: ConcernTypeId, angles: string[], reason: 
   return { type, typeLabel: t.label, angle: angle.id, angleLabel: angle.label, reason, worry: angle.worry, resolve: angle.resolve, major, source }
 }
 
-// 1–3 concerns. The business always supplies at least one, and only business
-// concerns can be major. Personality can add one minor concern. Skeptical or
-// change-averse owners carry 2–3 concerns and up to two majors; everyone else
-// 1–2 concerns and at most one major.
+// 1–3 concerns and up to two majors for ANY personality: how hard a call is comes
+// from the business, not from how the owner talks. A friendly owner who got
+// burned and is cutting costs is as hard as a skeptic. Only business concerns
+// can be major; personality can add one minor concern. Skeptical or
+// change-averse owners never have just one concern.
 function pickConcerns(
   rand: Rand,
   o: {
@@ -206,9 +216,9 @@ function pickConcerns(
   },
 ): Concern[] {
   const cautious = o.traits.skepticism === 4 || o.traits.openness === 1
-  const max = cautious ? 3 : 2
+  const max = 3
   const min = cautious ? 2 : 1
-  const maxMajors = cautious ? 2 : 1
+  const maxMajors = 2
 
   // Business candidates: one per type, a major version beats a minor one.
   const byType = new Map<ConcernTypeId, { angles: string[]; reason: string; major: boolean }>()
@@ -248,8 +258,8 @@ function pickConcerns(
     return true
   }
   takeBusiness()
-  // Sometimes a second business concern; more often for cautious owners.
-  if (candidates.length && concerns.length < max && rand() < (cautious ? 0.7 : 0.35)) takeBusiness()
+  // Sometimes a second business concern, the same chance for every personality.
+  if (candidates.length && concerns.length < max && rand() < SECOND_BUSINESS_CONCERN) takeBusiness()
 
   const nature = PERSONALITY_CONCERNS[o.personality]
   const p = { ...nature, ...nature.bySituation?.[o.situation] }
@@ -301,11 +311,11 @@ export function validateScenario(s: Scenario): string[] {
   if (s.needs.length < 2) problems.push('fewer than two needs')
 
   const cautious = s.traits.skepticism === 4 || s.traits.openness === 1
-  const [min, max] = cautious ? [2, 3] : [1, 2]
+  const [min, max] = cautious ? [2, 3] : [1, 3]
   if (s.concerns.length < min || s.concerns.length > max) problems.push(`${s.concerns.length} concerns, expected ${min}–${max}`)
   if (!s.concerns.some((c) => c.source === 'business')) problems.push('no business concern')
   if (s.concerns.some((c) => c.major && c.source !== 'business')) problems.push('a personality concern is major')
-  if (s.concerns.filter((c) => c.major).length > (cautious ? 2 : 1)) problems.push('too many major concerns')
+  if (s.concerns.filter((c) => c.major).length > 2) problems.push('too many major concerns')
   if (new Set(s.concerns.map((c) => c.type)).size !== s.concerns.length) problems.push('repeated concern type')
   for (const c of s.concerns) if (!c.reason || !c.worry || !c.resolve) problems.push(`${c.type} missing its reasoning`)
   return problems
@@ -314,9 +324,10 @@ export function validateScenario(s: Scenario): string[] {
 // ---------- Picking a scenario for a new call ----------
 
 // Picks a fresh scenario number that passes every check and doesn't repeat recent
-// calls: never the last owner, never the last kind of business (when there's
-// more than one kind), never a personality from the last 2 calls, and at most one
-// concern type shared with the last 3. Recent calls are newest first.
+// calls: never the last owner; never the last kind of business when there's more
+// than one kind, and otherwise (a rep who sells to one kind) never the same
+// business; never a personality from the last 2 calls; and at most one concern
+// type shared with the last 3. Recent calls are newest first.
 export function pickScenario({
   recent = [],
   offer,
@@ -331,6 +342,7 @@ export function pickScenario({
     fallback ??= s
     if (recent[0] && s.owner.name === recent[0].owner) continue
     if (kinds > 1 && recent[0]?.business && s.owner.industry === recent[0].business) continue
+    if (offer.businesses.length > 1 && recent[0]?.businessName && s.owner.business === recent[0].businessName) continue
     if (recent.slice(0, 2).some((r) => r.personality === s.personality.id)) continue
     if (s.concerns.filter((c) => recentTypes.has(c.type)).length > 1) continue
     return s

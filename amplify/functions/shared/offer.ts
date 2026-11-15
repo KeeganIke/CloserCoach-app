@@ -162,7 +162,7 @@ gaps: exactly 2 realistic ways the business gets by with NOTHING like this produ
 
 problems: exactly 3 real problems this product could solve for this business, each a short clause with no subject, lowercase, no period, in the style "misses calls while working under a car, and some callers try the next shop". Tag each with one area: customers (getting or keeping customers), time (the owner's or staff's time), money (costs or lost revenue), reputation (how the business looks or is reviewed). At least one problem must NOT be about customers.
 
-reasons: for each concern type listed, one short second-person sentence (under 15 words) on why THIS product specifically could trigger that concern for this business, for example for price: "It would be another monthly bill on top of the marketing agency you already pay." If a type has no product-specific angle, give a general but still realistic reason for this business. Never write what the owner would say.
+reasons: for each concern type listed, one short second-person sentence (under 15 words) on why THIS product specifically could trigger that concern for this business, for example for price: "It would be another monthly bill on top of the marketing agency you already pay." If a type has no product-specific angle, give a general but still realistic reason for this business. Never write what the owner would say. Never assume what the business uses today (an answering service, an agency, a staff member): that changes from call to call, so a reason must make sense whatever their current setup is.
 
 fitConcern: only when fit is "partial": pick the angle that matches why, and one second-person sentence explaining it. When fit is "strong", angle is "none" and reason is empty.
 

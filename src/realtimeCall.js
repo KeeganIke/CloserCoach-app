@@ -1,6 +1,8 @@
 // Connects the browser mic and speaker to an OpenAI Realtime session over WebRTC.
 
-export async function startCall({ tokenUrl, accessCode, offer, onTranscript, onAudioBlocked }) {
+// offer: the offer's fields. analysis: the sealed businesses for that offer.
+// recent: sealed summaries of the last few calls, so the next owner differs.
+export async function startCall({ tokenUrl, accessCode, offer, analysis, recent, onTranscript, onAudioBlocked }) {
   if (!tokenUrl) throw new Error("The call backend isn't deployed yet.")
 
   // Browsers (Safari especially) only allow sound that starts during a click. The
@@ -13,10 +15,10 @@ export async function startCall({ tokenUrl, accessCode, offer, onTranscript, onA
   const tokenRes = await fetch(tokenUrl, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ accessCode, offer }),
+    body: JSON.stringify({ accessCode, offer, analysis, recent }),
   })
   const tokenData = await tokenRes.json().catch(() => ({}))
-  if (!tokenRes.ok) throw new Error(tokenData.error || 'Could not start the call')
+  if (!tokenRes.ok) throw Object.assign(new Error(tokenData.error || 'Could not start the call'), { status: tokenRes.status })
 
   const mic = await navigator.mediaDevices.getUserMedia({
     audio: { echoCancellation: true, noiseSuppression: true, autoGainControl: true },
@@ -122,5 +124,5 @@ export async function startCall({ tokenUrl, accessCode, offer, onTranscript, onA
   }
 
   // hidden is sealed by the backend; only the report function can read it.
-  return { persona: tokenData.persona, hidden: tokenData.hidden, hangup }
+  return { persona: tokenData.persona, hidden: tokenData.hidden, recent: tokenData.recent, hangup }
 }

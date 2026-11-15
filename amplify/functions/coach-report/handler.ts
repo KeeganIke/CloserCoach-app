@@ -247,7 +247,7 @@ const SCHEMA = {
 function describeHidden(h: Hidden) {
   const setup =
     h.situation === 'has_provider'
-      ? `They already had someone for this, whose real weakness is that it ${h.providerWeakness}.`
+      ? `They already had something for this: ${h.providerWeakness}.`
       : "They didn't have anything like what the rep sells."
   return `What the owner was hiding (the rep could not see this):
 Real problems: ${h.problems.join('; ')}.

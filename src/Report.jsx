@@ -136,7 +136,7 @@ function Reveal({ hidden, coaching, name }) {
       </ul>
       {hidden.providerWeakness && (
         <p>
-          Already had someone for this, but it {hidden.providerWeakness}.
+          Already had something for this: {hidden.providerWeakness}.
         </p>
       )}
       <h4>Concerns they had ready</h4>

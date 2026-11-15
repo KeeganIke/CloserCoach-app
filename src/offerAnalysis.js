@@ -141,3 +141,21 @@ export async function analyzeOffer({ reportUrl, accessCode, offer, rounds = 3 })
   if (best) return { ...best, detail: lastError?.detail || '' }
   throw lastError
 }
+
+// Sealed summaries of the last few calls (newest first), sent with each new call
+// so the server doesn't repeat the owner, business, personality or concerns.
+const RECENT_KEY = 'closer-coach-recent-calls'
+
+export function loadRecent() {
+  const list = readJson(RECENT_KEY)
+  return Array.isArray(list) ? list.filter((x) => typeof x === 'string').slice(0, 3) : []
+}
+
+export function rememberCall(sealed) {
+  if (typeof sealed !== 'string') return
+  try {
+    localStorage.setItem(RECENT_KEY, JSON.stringify([sealed, ...loadRecent()].slice(0, 3)))
+  } catch {
+    // Then the next call just can't avoid repeats.
+  }
+}

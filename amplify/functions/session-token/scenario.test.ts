@@ -33,11 +33,18 @@ test('major concerns come only from the business, and any personality can have o
   }
 })
 
-test('skeptical or change-averse owners carry 2–3 concerns; others 1–2', () => {
+test('skeptical or change-averse owners carry 2–3 concerns; others 1–3', () => {
   for (const s of all) {
     const cautious = s.traits.skepticism === 4 || s.traits.openness === 1
-    if (cautious) assert.ok(s.concerns.length >= 2, `scenario ${s.id}`)
-    else assert.ok(s.concerns.length <= 2, `scenario ${s.id}`)
+    assert.ok(s.concerns.length >= (cautious ? 2 : 1) && s.concerns.length <= 3, `scenario ${s.id}`)
+  }
+})
+
+test('every personality can get a hard call: two majors or three concerns', () => {
+  for (const p of PERSONALITIES) {
+    const mine = all.filter((s) => s.personality.id === p.id)
+    assert.ok(mine.some((s) => s.concerns.filter((c) => c.major).length === 2), `${p.label} never got two majors`)
+    assert.ok(mine.some((s) => s.concerns.length === 3), `${p.label} never got three concerns`)
   }
 })
 
@@ -84,7 +91,7 @@ test('a new call avoids the last owner, the last two personalities, and repeat c
     for (const r of recent.slice(0, 2)) assert.notEqual(s.personality.id, r.personality)
     const recentTypes = new Set(recent.slice(0, 3).flatMap((r) => r.concernTypes))
     assert.ok(s.concerns.filter((c) => recentTypes.has(c.type)).length <= 1)
-    recent.unshift({ owner: s.owner.name, business: s.owner.industry, personality: s.personality.id, concernTypes: s.concerns.map((c) => c.type) })
+    recent.unshift({ owner: s.owner.name, business: s.owner.industry, businessName: s.owner.business, personality: s.personality.id, concernTypes: s.concerns.map((c) => c.type) })
   }
 })
 
@@ -125,23 +132,35 @@ test('product reasons explain a concern the owner already has', () => {
   }
 })
 
-test('one kind of business still works, and only then can the kind repeat', () => {
-  const one: OfferContext = { businesses: SAMPLE_BUSINESSES.slice(0, 1) }
+test('a rep who sells to one kind of business gets a different business each call', () => {
+  // Six dental practices: same kind, different businesses.
+  const dentists: OfferContext = {
+    businesses: SAMPLE_BUSINESSES.map((b, i) => ({ ...b, type: 'dental practice', name: `Practice ${i + 1}` })),
+  }
   let n = 7
   const random = () => ((n = (n * 9301 + 49297) % 233280) / 233280)
   const recent: RecentCall[] = []
-  for (let i = 0; i < 20; i++) {
-    const s = pickScenario({ recent, offer: one, random })
-    assert.equal(s.owner.business, 'Summit Plumbing')
-    recent.unshift({ owner: s.owner.name, business: s.owner.industry, personality: s.personality.id, concernTypes: [] })
+  for (let i = 0; i < 100; i++) {
+    const s = pickScenario({ recent, offer: dentists, random })
+    assert.equal(s.owner.industry, 'dental practice')
+    if (recent[0]) assert.notEqual(s.owner.business, recent[0].businessName)
+    recent.unshift({ owner: s.owner.name, business: s.owner.industry, businessName: s.owner.business, personality: s.personality.id, concernTypes: [] })
   }
+  // With only one business, it simply repeats.
+  const one: OfferContext = { businesses: SAMPLE_BUSINESSES.slice(0, 1) }
+  const s = pickScenario({ recent, offer: one, random })
+  assert.equal(s.owner.business, 'Summit Plumbing')
 })
 
 test('Old School always believes what they have works', () => {
   for (const s of all.filter((x) => x.personality.id === 'old_school')) {
-    const c = s.concerns.find((x) => /always done it this way/.test(x.reason))
+    const c = s.concerns.find((x) => /always done (it this way|things)/.test(x.reason))
     assert.ok(c, `scenario ${s.id}`)
     assert.ok(c!.major || (c!.type === 'current' && c!.angle === 'happy_enough') || (c!.type === 'need' && ['fine', 'word_of_mouth'].includes(c!.angle)))
+  }
+  // With nothing in place, it's word of mouth, not "what you have works".
+  for (const s of all.filter((x) => x.personality.id === 'old_school' && x.situation === 'no_solution')) {
+    assert.ok(s.concerns.some((c) => /word of mouth/.test(c.reason)), `scenario ${s.id}`)
   }
 })
 

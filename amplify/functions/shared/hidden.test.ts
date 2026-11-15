@@ -1,7 +1,9 @@
 import { test } from 'node:test'
 import assert from 'node:assert/strict'
 import { openHidden, sealHidden, type Hidden } from './hidden'
-import { PERSONAS, pickHidden } from '../session-token/handler'
+import { openRecent, sealRecent, toHidden } from '../session-token/handler'
+import { SAMPLE_CONTEXT } from '../session-token/sampleBusinesses'
+import { buildScenario } from '../session-token/scenario'
 
 const sample: Hidden = {
   situation: 'has_provider',
@@ -34,23 +36,23 @@ test('a sealed object with the wrong shape opens to null', () => {
   assert.equal(openHidden(bad, 'key-1'), null)
 })
 
-test('each call gets two problems from different areas, three distinct concerns and four traits', () => {
-  for (const persona of PERSONAS) {
-    for (let i = 0; i < 200; i++) {
-      const { hidden } = pickHidden(persona)
-      const areas = hidden.problems.map((text) => persona.problems.find((p) => p.text === text)!.area)
-      assert.equal(hidden.problems.length, 2)
-      assert.notEqual(areas[0], areas[1])
-      assert.equal(new Set(hidden.concerns).size, 3)
-      assert.equal(hidden.concerns.filter((c) => persona.concerns.includes(c)).length, 1)
-      assert.equal(hidden.personality.length, 4)
-      assert.equal(hidden.providerWeakness !== '', hidden.situation === 'has_provider')
-    }
+test("a call's scenario seals into the reveal shape the grader reads today", () => {
+  for (let id = 100000; id < 100200; id++) {
+    const s = buildScenario(id, SAMPLE_CONTEXT)
+    const h = toHidden(s)
+    assert.deepEqual(openHidden(sealHidden(h, 'key-1'), 'key-1'), h)
+    assert.equal(h.providerWeakness !== '', h.situation === 'has_provider')
+    assert.equal(h.concerns.length, s.concerns.length)
   }
 })
 
-test('both situations come up, roughly 65/35', () => {
-  let provider = 0
-  for (let i = 0; i < 4000; i++) if (pickHidden(PERSONAS[0]).hidden.situation === 'has_provider') provider++
-  assert.ok(provider > 1200 && provider < 1600, `has_provider came up ${provider} of 4000`)
+test('recent calls round-trip sealed, and junk or tampering is dropped', () => {
+  const s = buildScenario(100001, SAMPLE_CONTEXT)
+  const sealed = sealRecent(s, 'key-1')
+  assert.ok(!Buffer.from(sealed, 'base64url').toString().includes(s.personality.id))
+  const [r] = openRecent([sealed], 'key-1')
+  assert.deepEqual(r, { owner: s.owner.name, business: s.owner.industry, businessName: s.owner.business, personality: s.personality.id, concernTypes: s.concerns.map((c) => c.type) })
+  assert.deepEqual(openRecent([sealed, 'junk', 42, null], 'key-2'), [])
+  assert.equal(openRecent([sealed, sealed, sealed, sealed, sealed], 'key-1').length, 3)
+  assert.deepEqual(openRecent('nope', 'key-1'), [])
 })

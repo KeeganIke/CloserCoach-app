@@ -8,7 +8,7 @@ import MyProgress from './Progress.jsx'
 import Icon, { Logo } from './icons.jsx'
 import Dashboard, { CallTable, Overview, RANGES, StatCards, coachingFocus, formatDate } from './Dashboard.jsx'
 import { clearHistory, deleteCall, loadHistory, saveCall } from './history.js'
-import { analyzeOffer, loadAnalysis, pickAhead } from './offerAnalysis.js'
+import { analyzeOffer, clearAnalysis, loadAnalysis, loadRecent, pickAhead, rememberCall } from './offerAnalysis.js'
 import { OFFER_LIMITS, isComplete, loadOffer, normalizeOffer, offerText, sameOffer, storeOffer } from './offer.js'
 import { MAX_CALL_SECONDS, REPORT_URL, TOKEN_URL } from './config.js'
 
@@ -576,11 +576,14 @@ function App() {
       const call = await startCall({
         tokenUrl: TOKEN_URL,
         accessCode,
-        offer: offerText(fields),
+        offer: fields,
+        analysis: loadAnalysis(fields)?.sealed,
+        recent: loadRecent(),
         onTranscript: setLines,
         onAudioBlocked: (retry) => setRetryAudio(() => retry),
       })
       callRef.current = call
+      rememberCall(call.recent)
       setPersona(call.persona)
       setHidden(call.hidden)
       setSecondsLeft(MAX_CALL_SECONDS)
@@ -589,6 +592,12 @@ function App() {
     } catch (err) {
       setError(err.name === 'NotAllowedError' ? 'Microphone access is needed to make a call.' : err.message)
       if (/access code/i.test(err.message)) setCodeSaved(false)
+      // The server couldn't use the saved businesses: get fresh ones for next time.
+      if (err.status === 409) {
+        setError('Your businesses were out of date, so they are being rebuilt. Start the call again in a few seconds.')
+        clearAnalysis()
+        prepareOwners(fields)
+      }
       setPhase('setup')
     }
   }

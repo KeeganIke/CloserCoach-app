@@ -6,10 +6,10 @@
 import type { Business, OfferContext } from '../shared/offer'
 
 const reasons = {
-  price: 'It would be another monthly bill on top of the answering service and software you already pay for.',
+  price: 'It would be another monthly bill in a business where every expense gets watched.',
   trust: "You've heard plenty of promises from tech companies that didn't pan out.",
   time: 'You are on job sites all day and barely have time to take this call.',
-  current: 'You already have a way of handling missed calls, even if it is not perfect.',
+  current: 'Whatever you do now about missed calls works well enough that you rarely think about it.',
   need: "You figure people who really need you will just call back.",
   timing: "It's the middle of the season and you don't want to change anything now.",
   commitment: "You don't want to be locked into another monthly contract.",
