@@ -477,7 +477,18 @@ function App() {
       setReportStatus('done')
       setHistory(saveCall({ persona: callPersona, offer: savedText, report: finalReport, lines: kept }))
     } catch (err) {
-      setReportError(err.message)
+      // A phone cuts the connection when you switch apps or lock the screen, and
+      // Safari reports it as "Load failed". The grader still finished on the
+      // server; only the answer was lost, so grade again when the page is back.
+      const dropped = err instanceof TypeError || /load failed|failed to fetch|network/i.test(err.message || '')
+      gradeDropped.current = dropped
+      setReportError(
+        dropped
+          ? autoRetried.current
+            ? "Couldn't reach the coach to grade your call. Check your connection, then tap Try again. Your call is still here."
+            : "The connection dropped before your report arrived. This happens if you switch apps or lock your phone while it's grading. Your call is still here, and grading starts again when you come back to this page."
+          : err.message,
+      )
       setReportStatus(err.tooShort ? 'too_short' : 'error')
     }
   }
@@ -500,6 +511,7 @@ function App() {
     setLines(finalLines)
     setPhase('ended')
     window.scrollTo(0, 0)
+    autoRetried.current = false
     gradeCall(finalLines)
   }
   endCallRef.current = endCall
@@ -564,6 +576,28 @@ function App() {
       setPhase('setup')
     }
   }
+
+  // When grading was cut off by leaving the page, start it again on return.
+  // Only once per call, so a connection that is really down can't loop; after
+  // that, Try again is still there.
+  const gradeDropped = useRef(false)
+  const autoRetried = useRef(false)
+  useEffect(() => {
+    if (reportStatus !== 'error' || !gradeDropped.current || autoRetried.current) return
+    const retry = () => {
+      if (document.visibilityState !== 'visible' || !gradeDropped.current || autoRetried.current) return
+      gradeDropped.current = false
+      autoRetried.current = true
+      gradeCall(lines)
+    }
+    retry()
+    document.addEventListener('visibilitychange', retry)
+    window.addEventListener('online', retry)
+    return () => {
+      document.removeEventListener('visibilitychange', retry)
+      window.removeEventListener('online', retry)
+    }
+  }, [reportStatus])
 
   // Countdown; hang up automatically when time runs out.
   useEffect(() => {

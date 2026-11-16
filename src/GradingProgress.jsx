@@ -29,7 +29,10 @@ export default function GradingProgress() {
       <div className="meter grading-meter">
         <div className="meter-fill" style={{ width: `${percent}%` }} />
       </div>
-      <p className="grading-hint">Your coach is reviewing the call. This usually takes 20–30 seconds.</p>
+      <p className="grading-hint">
+        Your coach is reviewing the call. This usually takes 20–30 seconds.{' '}
+        <strong>Stay on this page until your report appears.</strong>
+      </p>
     </div>
   )
 }
