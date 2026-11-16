@@ -2,7 +2,7 @@
 // The model only rates each category; the score, points and grade are computed
 // here so the numbers always add up. No network calls, so it can be unit tested.
 
-export const RUBRIC_VERSION = 6
+export const RUBRIC_VERSION = 7
 
 // Ids are stable; display names and weights can change (bump RUBRIC_VERSION).
 // The model rates every category except delivery, which code scores from filler words.
@@ -10,10 +10,10 @@ export const RUBRIC_VERSION = 6
 export const CATEGORIES = [
   { id: 'opening', name: 'Opening and Attention', weight: 10 },
   { id: 'discovery', name: 'Pain Discovery', weight: 20 },
-  { id: 'solution_fit', name: 'Solution Fit', weight: 15 },
+  { id: 'solution_fit', name: 'Solution Fit', weight: 20 },
   { id: 'listening', name: 'Listening and Adaptability', weight: 10 },
   { id: 'objection_handling', name: 'Objection Handling', weight: 20 },
-  { id: 'closing', name: 'Closing and Next Step', weight: 15 },
+  { id: 'closing', name: 'Closing and Next Step', weight: 10 },
   { id: 'clarity', name: 'Clear and Concise', weight: 7 },
   { id: 'delivery', name: 'Filler Words', weight: 3 },
 ] as const

@@ -16,10 +16,10 @@ const OWNERS = [
 const CATS = [
   ['opening', 'Opening and Attention', 10, 0.6],
   ['discovery', 'Pain Discovery', 20, 0],
-  ['solution_fit', 'Solution Fit', 15, -0.7],
+  ['solution_fit', 'Solution Fit', 20, -0.7],
   ['listening', 'Listening and Adaptability', 10, 0.1],
   ['objection_handling', 'Objection Handling', 20, -0.3],
-  ['closing', 'Closing and Next Step', 15, 0.2],
+  ['closing', 'Closing and Next Step', 10, 0.2],
   ['clarity', 'Clear and Concise', 7, 0],
   ['delivery', 'Filler Words', 3, 0.5],
 ]

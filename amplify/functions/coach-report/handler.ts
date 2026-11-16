@@ -51,6 +51,8 @@ Filler words ("um", "uh") are scored separately by the app. Do not rate them, an
 
 Each rating is "4" (Excellent), "3" (Good), "2" (Fair), "1" (Poor), "0" (not demonstrated despite a reasonable opportunity) or "na" (cannot fairly be evaluated). Pick the rating whose description below best fits the evidence. Do not compute points or an overall score; the app does that. Do not give a high rating just because the rep avoided mistakes. These are reps practicing: if they did the main thing a category asks for with a minor miss, that is "3", not "2". Save "1" and "0" for clear failures. "4" means no meaningful weakness in that category; one clear miss makes it "3".
 
+Be consistent: the same transcript must always get the same ratings. Write the rationale first, naming what the rep did, then pick the rating. When a category sits between two ratings, give the highest rating whose description is fully met by what the rep actually said, never one that is only partly met.
+
 Grade the rep, not the owner. The owner is played by an AI and sometimes makes the rep's job easy: volunteering a problem, saying what would convince them, or suggesting a meeting or a time on their own. Give the rep credit only for what the rep did. Information the owner offered without being asked is not discovery by the rep. A meeting or time the owner proposed first is not a close by the rep. A good outcome reached this way never raises a rating. The outcome field still reports what happened.
 
 Never use "na" because the rep performed poorly. If an opportunity existed and the rep failed to act, rate the behavior. Evaluate the whole call in context; do not hunt for keywords or reward matching a script.
@@ -112,9 +114,10 @@ closing (Closing and Next Step)
 - 4: Proposes a specific, low-commitment next step (a day and time), confirms the details if accepted, and the timing fits the goodwill earned so far.
 - 3: A clear ask for a next step, but the time is vague or the agreement isn't confirmed.
 - 2: A weak or implicit ask ("let me know if you're interested").
-- 1: A pushy or badly timed ask, or repeating the ask after a clear no.
+- 1: A pushy ask, or repeating the ask after a clear no.
 - 0: Never asks for any next step despite the opportunity.
 - na: The owner firmly ended the call before the rep had a reasonable chance to propose a next step.
+An ask that comes before the owner's main objection or stated condition has been answered is badly timed: rate it exactly "2", however specific the day and time were.
 Making one appropriate attempt and then respecting a clear refusal earns a "3" or "4" depending on the quality of the attempt. Do not penalize a rep for respecting a no.
 If the owner suggested the meeting, the follow-up or the time first and the rep only went along with it or picked a time, rate at most "2": the owner closed, not the rep.
 
@@ -218,11 +221,13 @@ const SCHEMA = {
       items: {
         type: 'object',
         additionalProperties: false,
-        required: ['id', 'rating', 'rationale', 'whatHappened', 'improvement', 'tryLine'],
+        // Rationale before rating: the grader states the evidence, then rates it,
+        // which keeps the same transcript from flipping between two ratings.
+        required: ['id', 'rationale', 'rating', 'whatHappened', 'improvement', 'tryLine'],
         properties: {
           id: { type: 'string', enum: AI_CATEGORIES.map((c) => c.id) },
+          rationale: quoted('One sentence on what the rep did, written before choosing the rating'),
           rating: { type: 'string', enum: RATINGS },
-          rationale: quoted('One sentence'),
           whatHappened: quoted('What the owner said, then what the rep did instead; empty string for "4" or "na"'),
           improvement: quoted('One plain instruction for next time; empty string for "4" or "na"'),
           tryLine: quoted('Exact words to say instead; empty string for "4" or "na"'),

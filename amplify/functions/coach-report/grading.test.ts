@@ -84,8 +84,8 @@ test('the rubric adds up to 100 points', () => {
 
 test('weighted scoring and rounding', () => {
   // Points per rating: 4 = 100%, 3 = 80%, 2 = 60%, 1 = 30%, 0 = 0%.
-  // opening 4 (10), discovery 3 (16), solution_fit 1 (4.5), listening 3 (8),
-  // objection_handling 2 (12), closing 0 (0), clarity 4 (7), delivery 4 (3) = 60.5, rounds up to 61
+  // opening 4 (10), discovery 3 (16), solution_fit 1 (6), listening 3 (8),
+  // objection_handling 2 (12), closing 0 (0), clarity 4 (7), delivery 4 (3) = 62
   const { categories, overallScore } = scoreCategories(
     ratingsFor({
       opening: '4',
@@ -98,10 +98,10 @@ test('weighted scoring and rounding', () => {
       delivery: '4',
     }),
   )
-  assert.equal(overallScore, 61)
+  assert.equal(overallScore, 62)
   assert.deepEqual(
     categories.map((c) => c.earnedPoints),
-    [10, 16, 4.5, 8, 12, 0, 7, 3],
+    [10, 16, 6, 8, 12, 0, 7, 3],
   )
   // All model ratings 3 plus clean filler words: 97 * 80% + 3 = 80.6 of 100.
   assert.equal(grade(modelOutput()).overallScore, 81)
@@ -114,11 +114,11 @@ test('N/A is left out of both earned and possible points', () => {
   assert.equal(overallScore, 100)
   assert.equal(categories.find((c) => c.id === 'closing')!.earnedPoints, null)
 
-  // discovery 0, closing and clarity N/A, everything else 4: 58 of 78.
+  // discovery 0, closing and clarity N/A, everything else 4: 63 of 83.
   const mixed = scoreCategories(
     ratingsFor({ opening: '4', discovery: '0', solution_fit: '4', listening: '4', objection_handling: '4', delivery: '4' }),
   )
-  assert.equal(mixed.overallScore, Math.round((58 / 78) * 100))
+  assert.equal(mixed.overallScore, Math.round((63 / 83) * 100))
 })
 
 test('all N/A produces no score, and delivery alone cannot make one', () => {
@@ -371,7 +371,7 @@ test('score band boundaries', () => {
 test('reports carry the fields needed for future rescoring', () => {
   const report = grade(modelOutput({ closing: 'na' }))
   assert.equal(report.rubricVersion, RUBRIC_VERSION)
-  assert.equal(report.rubricVersion, 6)
+  assert.equal(report.rubricVersion, 7)
   assert.equal(typeof report.overallScore, 'number')
   assert.equal(typeof report.performanceGrade, 'string')
   assert.deepEqual(
