@@ -14,6 +14,6 @@ export async function fetchReport({ reportUrl, accessCode, persona, offer, hidde
     }),
   })
   const data = await res.json().catch(() => ({}))
-  if (!res.ok) throw new Error(data.error || 'Could not grade the call')
+  if (!res.ok) throw Object.assign(new Error(data.error || 'Could not grade the call'), { tooShort: !!data.tooShort })
   return data.report
 }

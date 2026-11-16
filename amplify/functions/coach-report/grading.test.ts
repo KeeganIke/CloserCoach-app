@@ -32,6 +32,7 @@ const lines: Line[] = [
   { role: 'assistant', text: 'Word of mouth mostly. Just send me an email.' },
   { role: 'user', text: "Happy to. What would you want to see in it so it's worth your time?" },
   { role: 'assistant', text: "Prices. I've got to go." },
+  { role: 'user', text: 'Will do.' },
 ]
 
 type Ratings = Partial<Record<AiCategoryId, Rating>>
@@ -164,8 +165,8 @@ test('a "send me info" ending is accepted as follow_up_agreed or no_meeting', ()
   assert.ok(validateModelOutput({ ...modelOutput(), outcome: { status: 'no_meeting', rationale: 'x' } }).ok)
 })
 
-test('fewer than 3 rep turns is too short', () => {
-  const short = lines.slice(0, 4) // two rep turns
+test('fewer than 4 rep turns is too short', () => {
+  const short = lines.slice(0, 6) // three rep turns
   const result = buildReport(modelOutput(), short)
   assert.equal(result.ok, false)
   assert.equal(!result.ok && result.reason, 'too_short')
@@ -302,7 +303,7 @@ test('delivery counts filler words in rep lines only', () => {
   const clean = scoreDelivery(lines)
   assert.equal(clean.rating, '4')
   assert.equal(clean.fillers, 0)
-  assert.equal(clean.words, 37)
+  assert.equal(clean.words, 39)
 
   // From real calls: "Yeah, um, do you have", "any, like, major issues", "could, you know, make it".
   const counted = scoreDelivery([
@@ -344,6 +345,7 @@ test('delivery is scored by code and included in the report', () => {
     lines[4],
     { role: 'user', text: "Uh, happy to. Um, what would you want to see in it so it's worth your time?" },
     lines[6],
+    lines[7],
   ]
   const report = grade(modelOutput(allRatings('4')), fillerLines)
   const delivery = report.categories.find((c) => c.id === 'delivery')!
@@ -369,7 +371,7 @@ test('score band boundaries', () => {
 test('reports carry the fields needed for future rescoring', () => {
   const report = grade(modelOutput({ closing: 'na' }))
   assert.equal(report.rubricVersion, RUBRIC_VERSION)
-  assert.equal(report.rubricVersion, 5)
+  assert.equal(report.rubricVersion, 6)
   assert.equal(typeof report.overallScore, 'number')
   assert.equal(typeof report.performanceGrade, 'string')
   assert.deepEqual(
@@ -425,6 +427,7 @@ test('delivery advice names the fillers used', () => {
     lines[4],
     { role: 'user', text: "Happy to. What would you want to see in it so it's worth your time?" },
     lines[6],
+    lines[7],
   ])
   const delivery = report.categories.find((c) => c.id === 'delivery')!
   assert.notEqual(delivery.rating, '4')
@@ -461,7 +464,7 @@ test('objection handling never gets its own "How to improve"', () => {
 })
 
 test('answer lengths count only the rep', () => {
-  assert.deepEqual(answerStats(lines), { answers: 3, average: 12, longest: 15 })
+  assert.deepEqual(answerStats(lines), { answers: 4, average: 10, longest: 15 })
   assert.deepEqual(answerStats([{ role: 'assistant', text: 'Hello there.' }]), { answers: 0, average: 0, longest: 0 })
 })
 
@@ -536,6 +539,6 @@ test('a slightly-off objection quote is swapped for what the owner actually said
 })
 
 test('the report never has semicolons, but quotes of the call stay exact', () => {
-  const out = noSemicolons({ summary: 'You explained the price; she still passed.', quote: 'Yeah; fine', objection: 'No; thanks', list: ['Ends with one;'] })
-  assert.deepEqual(out, { summary: 'You explained the price. She still passed.', quote: 'Yeah; fine', objection: 'No; thanks', list: ['Ends with one.'] })
+  const out = noSemicolons({ summary: 'You explained the price; she still passed.', tryLine: 'Sam with Eichert Digital—we build sites', quote: 'Yeah; fine', objection: 'No; thanks', list: ['Ends with one;'] })
+  assert.deepEqual(out, { summary: 'You explained the price. She still passed.', tryLine: 'Sam with Eichert Digital, we build sites', quote: 'Yeah; fine', objection: 'No; thanks', list: ['Ends with one.'] })
 })

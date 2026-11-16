@@ -2,7 +2,7 @@
 // The model only rates each category; the score, points and grade are computed
 // here so the numbers always add up. No network calls, so it can be unit tested.
 
-export const RUBRIC_VERSION = 5
+export const RUBRIC_VERSION = 6
 
 // Ids are stable; display names and weights can change (bump RUBRIC_VERSION).
 // The model rates every category except delivery, which code scores from filler words.
@@ -52,7 +52,7 @@ const FILLER_PATTERNS = [/\b(?:u+m+|u+h+|e+r+m+)\b/gi, /\blike,/gi, /,\s*you kno
 export const OUTCOMES = ['meeting_booked', 'follow_up_agreed', 'no_meeting', 'declined', 'insufficient_information'] as const
 export const VERDICTS = ['worked', 'mixed', 'fell_flat'] as const
 
-export const MIN_REP_TURNS = 3
+export const MIN_REP_TURNS = 4
 const MAX_STRENGTHS = 2
 const MAX_WEAKNESSES = 3
 const MAX_OBJECTIONS = 3
@@ -390,12 +390,15 @@ export function dropInventedTerms(output: ModelOutput, offer: string, lines: Lin
 export type GradeResult = { ok: true; report: Report } | { ok: false; reason: 'invalid' | 'too_short'; error: string }
 
 // Turns the model's raw JSON into the final report.
-// Semicolons read as machine-written, so the report never has them: each becomes a
-// sentence break. Quotes of what was said on the call are left as they are.
+// Semicolons and em dashes read as machine-written, so the report never has them:
+// a semicolon becomes a sentence break and a dash a comma. Quotes of what was said
+// on the call are left as they are.
 export function noSemicolons<T>(value: T, key = ''): T {
   if (typeof value === 'string') {
     if (key === 'quote' || key === 'objection') return value
-    return value.replace(/\s*;\s*(\S?)/g, (_, c: string) => (c ? `. ${c.toUpperCase()}` : '.')) as T
+    return value
+      .replace(/\s*;\s*(\S?)/g, (_, c: string) => (c ? `. ${c.toUpperCase()}` : '.'))
+      .replace(/\s*[—–]\s*/g, ', ') as T
   }
   if (Array.isArray(value)) return value.map((v) => noSemicolons(v, key)) as T
   if (value && typeof value === 'object')

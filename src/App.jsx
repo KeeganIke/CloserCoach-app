@@ -3,6 +3,7 @@ import { startCall } from './realtimeCall.js'
 import { fetchReport } from './report.js'
 import Report from './Report.jsx'
 import GradingProgress from './GradingProgress.jsx'
+import ShortCall from './ShortCall.jsx'
 import Regrade from './Regrade.jsx'
 import MyProgress from './Progress.jsx'
 import Icon, { Logo } from './icons.jsx'
@@ -516,7 +517,7 @@ function App() {
       setHistory(saveCall({ persona: callPersona, offer: savedText, report: finalReport, lines: kept }))
     } catch (err) {
       setReportError(err.message)
-      setReportStatus('error')
+      setReportStatus(err.tooShort ? 'too_short' : 'error')
     }
   }
 
@@ -1118,6 +1119,9 @@ function App() {
                       Try again
                     </button>
                   </section>
+                )}
+                {reportStatus === 'too_short' && (
+                  <ShortCall />
                 )}
                 {reportStatus === 'done' && report && (
                   <Report report={report} persona={persona} previous={history.slice(1).map((c) => c.report)} />

@@ -6,3 +6,6 @@ dist
 # Amplify
 .amplify
 amplify_outputs*
+
+# Grader eval output
+grader-eval-results

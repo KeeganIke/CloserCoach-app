@@ -3276,3 +3276,19 @@ textarea {
 }
 
 }
+
+/* ---------- Too short to grade ---------- */
+
+.short-call h2 {
+  margin: 0 0 6px;
+}
+
+.short-call-lead {
+  margin: 0 0 12px;
+  color: var(--muted);
+  line-height: 1.55;
+}
+
+.short-call .better-line {
+  margin: 14px 0 0;
+}
