@@ -153,16 +153,12 @@ function Reveal({ hidden, coaching, name }) {
   )
 }
 
-// "How to improve" content for one scored category.
+// "How to improve" content for one scored category. The rating line above it
+// already says what went wrong, so this shows only the habit and the words to use
+// (the grader's "whatHappened" told the same story a second time).
 function Advice({ c }) {
   return (
     <>
-      {c.whatHappened && (
-        <p>
-          <span className="improve-label">What happened</span>
-          {c.whatHappened}
-        </p>
-      )}
       <p>
         <span className="improve-label">{c.id === 'delivery' ? 'Filler words' : 'Next time'}</span>
         {c.improvement}

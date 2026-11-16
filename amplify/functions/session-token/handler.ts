@@ -112,7 +112,9 @@ export const handler = async (event: FunctionUrlEvent) => {
         audio: {
           input: {
             // The offer is a hint for spelling the rep's own words: product, company and business names.
-            transcription: { model: 'gpt-4o-mini-transcribe', language: 'en', prompt: `A sales rep cold calling ${scenario.owner.business}. Their offer: ${offerText(offer)}` },
+            // No prompt: on a moment of noise with no speech, the transcriber can echo its
+            // prompt back as if the rep had said it ("A sales rep cold calling...").
+            transcription: { model: 'gpt-4o-mini-transcribe', language: 'en' },
             // Volume-based turn taking: threshold 0.8 (default 0.5) ignores quiet noises and laughs,
             // and the owner replies after 1.2s of silence so a mid-sentence pause doesn't end the
             // rep's turn (0.8s cut reps off). semantic_vad was tried: it waited up to ~8s and let

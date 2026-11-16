@@ -81,7 +81,7 @@ Grade how well the rep connected what they sell to this owner: to the problem or
 - 2: Generic features or benefits not tied to anything the owner said ("I build websites", "I can add online booking").
 - 1: Vague or exaggerated claims, or keeps pushing an angle the owner already rejected.
 - 0: Never explains what they offer or why it would help, despite the opportunity.
-If the owner asked about price and the rep didn't answer, rate at most "2". Misleading claims about the offer or its results, or stating something false about the owner's business as fact (their numbers, problems or history), cap this category at "1". Misleading includes offering to show client results or numbers the rep later admits they don't have, and presenting a weak measure (like website clicks) as proof the service pays for itself. Ordinary remarks and reasonable assumptions ("you must be slammed right now") are not invented facts.
+If the owner asked about price and the rep didn't answer, rate at most "2". Misleading claims cap this category at "1". Misleading means: promising deal terms the offer description doesn't include (a guarantee, refund, discount, free setup or other extra), promising guaranteed results ("you'll get twenty jobs a month"), stating something false about the owner's business as fact (their numbers, problems or history), contradicting themselves (offering to show client results, then admitting they don't have any), or presenting a weak measure (like website clicks) as proof the service pays for itself. Mentioning past clients or results is not misleading by itself: the app doesn't record a rep's track record, so take those claims at face value unless the rep contradicts them later in the call. Ordinary remarks and reasonable assumptions ("you must be slammed right now") are not invented facts.
 
 listening (Listening and Adaptability)
 - 4: Responses clearly build on what the owner said. The rep acknowledges and changes approach when the owner signals something (busy, existing vendor, price concern).
@@ -116,7 +116,7 @@ closing (Closing and Next Step)
 - 2: A weak or implicit ask ("let me know if you're interested").
 - 1: A pushy ask, or repeating the ask after a clear no.
 - 0: Never asks for any next step despite the opportunity.
-- na: The owner firmly ended the call before the rep had a reasonable chance to propose a next step.
+- na: The owner firmly ended the call before the rep had a reasonable chance to propose a next step. This includes an owner who hangs up while their main objection or question is still unanswered: the call never reached the point where asking for a meeting made sense, so closing is "na" and the miss is graded under objection handling and solution fit instead. A yes/no question like "would you be interested?" is not proposing a next step, so it doesn't change this. Only a real proposal (a meeting, a call, a day or time) made before the hang-up is rated as usual.
 An ask that comes before the owner's main objection or stated condition has been answered is badly timed: rate it exactly "2", however specific the day and time were.
 Making one appropriate attempt and then respecting a clear refusal earns a "3" or "4" depending on the quality of the attempt. Do not penalize a rep for respecting a no.
 If the owner suggested the meeting, the follow-up or the time first and the rep only went along with it or picked a time, rate at most "2": the owner closed, not the rep.
@@ -184,7 +184,8 @@ Rules for every suggested line (tryLine, betterLine) and for focusNextCall:
 - Never advise simply accepting the email and getting off the phone.
 - Use only facts about the offer that appear in the rep's offer description or in the call. Never invent prices, fees, guarantees, results or terms.
 - Never return to an angle the owner already rejected on the call.
-- When the owner asks for numbers, results or client examples the offer description doesn't give, the suggested line says honestly that the rep doesn't have them, then answers the real question: work out break-even with the owner's own numbers, agree to track real booked jobs (not clicks), and use the offer's guarantee or no-contract terms if it has them. Never suggest citing results or clients that aren't in the offer.
+- When the owner asks whether it pays for itself, the suggested line answers with the owner's own numbers instead of claims: ask what a typical job or customer is worth to them, show how few extra jobs a month would cover the price, and say how those jobs would be tracked (for example, requests through the booking or contact form). Don't open with what the rep lacks.
+- When the owner directly asks for results, case studies or client examples, the app doesn't know whether the rep has any. Start that suggested line with "(If you don't have client results yet)", then give words that say so plainly and move to the break-even answer above. Use the offer's guarantee or no-contract terms if it has them. Never suggest citing results or clients that aren't in the offer.
 - Never repeat another suggested line in the report; a category's tryLine must not duplicate an objection's betterLine.`
 
 const quoted = (description: string) => ({ type: 'string', description })

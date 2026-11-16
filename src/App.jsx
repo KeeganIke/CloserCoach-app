@@ -40,10 +40,13 @@ function formatTime(seconds) {
 }
 
 // Mic noise sometimes gets transcribed as stray words in other scripts ("好", "어 아").
-// Treat rep lines without at least two English letters as noise.
+// Treat rep lines without at least two English letters as noise. Older calls could
+// also have the transcriber's own instructions echoed back as a rep line.
+const PROMPT_ECHO = /sales rep cold calling|their offer:|what i sell:|who i sell to:/i
 function isRealLine(l) {
   if (!l.text) return false
   if (l.role !== 'user') return true
+  if (PROMPT_ECHO.test(l.text)) return false
   return (l.text.match(/[a-z]/gi) || []).length >= 2
 }
 
