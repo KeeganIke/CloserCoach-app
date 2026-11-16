@@ -8,7 +8,7 @@ import Regrade from './Regrade.jsx'
 import MyProgress from './Progress.jsx'
 import Icon, { Logo } from './icons.jsx'
 import Dashboard, { CallTable, Overview, RANGES, StatCards, formatDate } from './Dashboard.jsx'
-import { clearHistory, deleteCall, loadHistory, saveCall } from './history.js'
+import { clearHistory, deleteCall, isSample, loadHistory, removeSamples, saveCall } from './history.js'
 import { analyzeOffer, clearAnalysis, loadAnalysis, loadRecent, pickAhead, rememberCall } from './offerAnalysis.js'
 import { OFFER_LIMITS, isComplete, loadOffer, normalizeOffer, offerText, productText, sameOffer, storeOffer } from './offer.js'
 import { MAX_CALL_SECONDS, REPORT_URL, TOKEN_URL } from './config.js'
@@ -90,10 +90,9 @@ function Transcript({ lines, persona }) {
 }
 
 
-// Sample calls for previewing the dashboard while developing; never in the live build.
-const loadSample = import.meta.env.DEV
-  ? async () => (await import('./sampleHistory.js')).default()
-  : null
+// Made-up calls so someone with no calls yet can see what the app looks like.
+// Loaded on demand, so they cost nothing for anyone who doesn't ask for them.
+const loadSample = async () => (await import('./sampleHistory.js')).default()
 
 const NAV = [
   { id: 'home', label: 'Dashboard', icon: 'home' },
@@ -373,7 +372,7 @@ function App() {
   const inFlight = useRef(null) // { key, promise } for the analysis running now
   const [history, setHistory] = useState(loadHistory)
   const [openCall, setOpenCall] = useState(null) // a saved call being reread
-  const [range, setRange] = useState('30')
+  const [range, setRange] = useState('7')
   const [compare, setCompare] = useState(true)
   const [ownerFilter, setOwnerFilter] = useState('')
   const [outcomeFilter, setOutcomeFilter] = useState('')
@@ -385,6 +384,16 @@ function App() {
   const stickToBottom = useRef(true)
 
   const onCallScreen = phase === 'live' || phase === 'ended'
+
+  const hasSamples = history.some(isSample)
+  const showSamples = async () => {
+    setHistory(await loadSample())
+    notify('Sample scores added')
+  }
+  const hideSamples = () => {
+    setHistory(removeSamples())
+    notify('Sample scores removed')
+  }
 
   const notify = (text) => setToast(text)
   useEffect(() => {
@@ -638,6 +647,18 @@ function App() {
       )}
 
       <main className={`main${phase === 'live' ? ' with-call-bar' : ''}`}>
+        {hasSamples && !onCallScreen && ['home', 'progress', 'analytics', 'calls', 'saved'].includes(view) && (
+          <div className="sample-banner" role="status">
+            <Icon name="alert" />
+            <span>
+              <strong>You're looking at sample scores.</strong> These 30 calls are made up to show what the app looks like.
+              They're removed when you save your first real call.
+            </span>
+            <button className="text-button" onClick={hideSamples}>
+              Remove them
+            </button>
+          </div>
+        )}
         {!onCallScreen && view === 'home' && (
           <>
             <PageHeader title={greeting()} subtitle="Sharpen your pitch before the real call." />
@@ -659,11 +680,9 @@ function App() {
                   <h2>Your stats fill in after your first call</h2>
                   <p className="muted">Each graded call adds to your scores, skills, and objection trends below.</p>
                 </div>
-                {loadSample && (
-                  <button className="button secondary" onClick={async () => setHistory(await loadSample())}>
-                    Load sample calls
-                  </button>
-                )}
+                <button className="button secondary" onClick={showSamples}>
+                  Show sample scores
+                </button>
               </section>
             )}
             <Overview
@@ -898,25 +917,26 @@ function App() {
               />
             </section>
 
-            {loadSample && (
-              <section className="card setting">
-                <div className="setting-text">
-                  <h2>Sample calls</h2>
-                  <p>Fills the dashboard with made-up calls for previewing. Only shown while developing.</p>
-                </div>
-                <div className="setting-control end">
-                  <button
-                    className="button secondary"
-                    onClick={async () => {
-                      setHistory(await loadSample())
-                      notify('Sample calls loaded')
-                    }}
-                  >
-                    Load sample calls
+            <section className="card setting">
+              <div className="setting-text">
+                <h2>Sample scores</h2>
+                <p>
+                  Fills the dashboard, progress and analytics with 30 made-up calls so you can see what they look like. They're
+                  removed automatically when you save your first real call.
+                </p>
+              </div>
+              <div className="setting-control end">
+                {hasSamples ? (
+                  <button className="button secondary" onClick={hideSamples}>
+                    Remove sample scores
                   </button>
-                </div>
-              </section>
-            )}
+                ) : (
+                  <button className="button secondary" onClick={showSamples}>
+                    Show sample scores
+                  </button>
+                )}
+              </div>
+            </section>
 
             <section className="card setting danger-zone">
               <div className="setting-text">

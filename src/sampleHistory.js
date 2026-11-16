@@ -1,6 +1,7 @@
-// Dev-only sample calls for previewing the dashboard (loaded from a button that
-// only exists in `npm run dev`). Fills browser history with made-up graded calls
-// whose scores move up and down and whose reports agree with themselves.
+// Made-up graded calls behind "Show sample scores", so someone without calls yet
+// (like a judge) can see what the dashboard, progress and analytics look like.
+// Scores move up and down and each report agrees with itself. They are labeled
+// as samples in the app, and removed when the first real call is saved.
 import { loadHistory } from './history.js'
 
 const OWNERS = [

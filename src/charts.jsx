@@ -41,7 +41,7 @@ function Tooltip({ x, width, title, rows }) {
 }
 
 // Line chart of one series per bucket, with an optional dashed comparison series.
-export function LineChart({ buckets, compare, height = 220, min = 0, max = 100, bands = false, format = (v) => v }) {
+export function LineChart({ buckets, compare, height = 220, min = 0, max = 100, bands = false, format = (v) => v, valueLabel = 'This period' }) {
   const [ref, width] = useWidth()
   const [hover, setHover] = useState(null)
   const pad = { top: 10, right: bands ? 118 : 40, bottom: 26, left: 4 }
@@ -117,9 +117,9 @@ export function LineChart({ buckets, compare, height = 220, min = 0, max = 100, 
         <Tooltip
           x={x(hover)}
           width={width}
-          title={buckets[hover].label}
+          title={buckets[hover].title || buckets[hover].label}
           rows={[
-            { label: 'This period', value: values[hover] == null ? 'No calls' : format(values[hover]), tone: 'primary' },
+            { label: valueLabel, value: values[hover] == null ? 'No calls' : format(values[hover]), tone: 'primary' },
             ...(compareValues
               ? [
                   {

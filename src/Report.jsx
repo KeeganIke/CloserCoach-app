@@ -305,8 +305,9 @@ export default function Report({ report, persona, previous = [] }) {
           <div className="panel-head">
             <h2 className="card-title">Scorecard</h2>
             <p className="muted small">
-              Scored on {rows.length - skipped} of {rows.length} categories
-              {skipped > 0 && '. N/A categories are left out of your score'}
+              {skipped > 0
+                ? `Graded on ${rows.length - skipped} of ${rows.length} skills. Skills marked N/A didn't come up on this call, so they don't count toward your score.`
+                : `Graded on all ${rows.length} skills`}
             </p>
           </div>
           {rows.map((r) => {

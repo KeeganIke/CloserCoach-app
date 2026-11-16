@@ -3244,6 +3244,35 @@ textarea {
 
 }
 
+/* ---------- Sample scores notice ---------- */
+
+.sample-banner {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 8px 12px;
+  margin: 0 0 20px;
+  padding: 12px 14px;
+  border: 1px solid rgba(240, 192, 96, 0.5);
+  border-radius: 10px;
+  background: #fff8e8;
+  color: var(--ink);
+  font-size: 14px;
+  line-height: 1.5;
+}
+
+.sample-banner .icon {
+  flex: none;
+  width: 18px;
+  height: 18px;
+  color: #b7791f;
+}
+
+.sample-banner span {
+  flex: 1;
+  min-width: 200px;
+}
+
 /* ---------- Too short to grade ---------- */
 
 .short-call h2 {

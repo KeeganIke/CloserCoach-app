@@ -185,7 +185,8 @@ export default function MyProgress({ calls, onPractice }) {
               <Icon name="bulb" /> Next focus: {focus.name}
             </h2>
             <p className="pfocus-meta">
-              Your lowest skill: {focus.now}% of the points over your last {Math.min(WINDOW, calls.length)} calls
+              Your lowest skill. You averaged {Math.round((focus.now / 100) * focus.max * 2) / 2} of {focus.max} points on it
+              {calls.length === 1 ? ' on your first call' : ` over your last ${Math.min(WINDOW, calls.length)} calls`}.
             </p>
             {SKILL_ADVICE[focus.id] && <p className="pfocus-tip">{SKILL_ADVICE[focus.id].habit}</p>}
             <button className="button accent pfocus-button" onClick={onPractice}>

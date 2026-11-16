@@ -45,6 +45,27 @@ function fill(buckets, calls, valueOf) {
   })
 }
 
+// A new rep's calls usually fall on a day or two, which makes a chart by date a
+// single lonely dot. Until the calls span 3 different days, plot each call in
+// order instead (Call 1, Call 2, ...); after that, average by date.
+function scoreTrend(start, end, calls) {
+  const days = new Set(calls.map((c) => startOfDay(new Date(c.date).getTime())))
+  if (days.size >= 3) return { byCall: false, series: fill(makeBuckets(start, end), calls, scoreOf) }
+  const ordered = [...calls].sort((a, b) => new Date(a.date) - new Date(b.date))
+  return {
+    byCall: true,
+    series: ordered.map((c, i) => ({
+      label: `Call ${i + 1}`,
+      title: `Call ${i + 1}, ${formatDate(c.date, true)}`,
+      value: c.report.overallScore,
+    })),
+  }
+}
+
+const callCount = (n, byCall) => `${n} graded ${n === 1 ? 'call' : 'calls'}${byCall && n > 1 ? ', shown call by call' : ''}`
+
+const lowFor = (series) => Math.max(0, Math.floor((Math.min(100, ...series.map((b) => b.value ?? 100)) - 10) / 10) * 10)
+
 const scoreOf = (calls) => {
   const a = average(calls.map((c) => c.report.overallScore))
   return a == null ? null : Math.round(a)
@@ -154,10 +175,11 @@ export function StatCards({ calls }) {
     return age >= 7 * DAY && age < 14 * DAY
   })
   const avgAll = scoreOf(calls)
-  const avg30 = scoreOf(periodOf(calls, '30').current)
+  const avg7 = scoreOf(periodOf(calls, '7').current)
   const avgRecent = scoreOf(calls.slice(0, 5))
   const avgBefore = scoreOf(calls.slice(5, 10))
-  const trend = avgRecent != null && avgBefore ? Math.round(((avgRecent - avgBefore) / avgBefore) * 100) : null
+  // In score points, like every other change in the app (not a percent).
+  const trend = avgRecent != null && avgBefore != null ? avgRecent - avgBefore : null
   const days = streak(calls)
 
   return (
@@ -165,11 +187,11 @@ export function StatCards({ calls }) {
       <StatCard
         icon="trophy"
         tone="gold"
-        value={avg30 ?? '—'}
-        label="Average, last 30 days"
+        value={avgAll ?? '—'}
+        label="All-time average"
         change={
           <span className="change flat">
-            {avgAll == null ? 'No calls yet' : `All-time ${avgAll}. Last 5 calls ${avgRecent}.`}
+            {avgAll == null ? 'No calls yet' : avg7 == null ? 'No calls in the last 7 days' : `Average score, last 7 days: ${avg7}`}
           </span>
         }
       />
@@ -183,11 +205,11 @@ export function StatCards({ calls }) {
       <StatCard
         icon="chart"
         tone={trend < 0 ? 'red' : 'green'}
-        value={trend == null ? '—' : trend === 0 ? 'Same' : `${trend > 0 ? '↑' : '↓'} ${Math.abs(trend)}%`}
+        value={trend == null ? '—' : changeText(trend)}
         valueTone={trend > 0 ? 'up' : trend < 0 ? 'down' : ''}
         label="Score change"
         change={
-          <span className="change flat">{trend == null ? 'Needs 6 calls to compare' : 'Last 5 calls vs the 5 before'}</span>
+          <span className="change flat">{trend == null ? 'Shows after your 6th call' : 'Last 5 calls vs the 5 before'}</span>
         }
       />
       <StatCard
@@ -315,17 +337,17 @@ function ReviewList({ calls, onOpen }) {
 // The short version for the Dashboard: last 30 days of scores, the calls worth
 // rereading, and the latest calls. Everything else lives on the Analytics page.
 export function Overview({ calls, onOpen, onShowCalls, onShowAnalytics }) {
-  const { start, end, current, previous } = periodOf(calls, '30')
-  const series = fill(makeBuckets(start, end), current, scoreOf)
+  const { start, end, current, previous } = periodOf(calls, '7')
+  const { byCall, series } = scoreTrend(start, end, current)
   const avgNow = scoreOf(current)
   const avgBefore = scoreOf(previous)
-  const low = Math.max(0, Math.floor((Math.min(100, ...series.map((b) => b.value ?? 100)) - 10) / 10) * 10)
+  const low = lowFor(series)
   const toReview = [...current].sort((a, b) => a.report.overallScore - b.report.overallScore).slice(0, 4)
 
   return (
     <div className="tray">
       <Tile
-        title="Score trend, last 30 days"
+        title="Score trend, last 7 days"
         wide
         footer={
           <button className="text-button" onClick={onShowAnalytics}>
@@ -334,9 +356,19 @@ export function Overview({ calls, onOpen, onShowCalls, onShowAnalytics }) {
         }
       >
         <p className="metric-sub">
-          {avgBefore == null ? `${current.length} graded calls` : <><Delta now={avgNow} before={avgBefore} /> vs the 30 days before</>}
+          {avgBefore == null || byCall ? (
+            callCount(current.length, byCall)
+          ) : (
+            <>
+              <Delta now={avgNow} before={avgBefore} /> vs the 7 days before
+            </>
+          )}
         </p>
-        {current.length ? <LineChart buckets={series} min={low} max={100} bands height={200} /> : <NoData height={200} text="No calls in the last 30 days" />}
+        {current.length ? (
+          <LineChart buckets={series} min={low} max={100} bands height={200} valueLabel={byCall ? 'Score' : 'Average score'} />
+        ) : (
+          <NoData height={200} text="No calls in the last 7 days" />
+        )}
       </Tile>
 
       <Tile title="Calls to review">{toReview.length ? <ReviewList calls={toReview} onOpen={onOpen} /> : <NoData />}</Tile>
@@ -367,9 +399,10 @@ export default function Dashboard({ calls, range, compare, onOpen, onShowCalls }
 
   const avgNow = scoreOf(current)
   const avgBefore = scoreOf(previous)
-  const scoreSeries = fill(buckets, current, scoreOf)
-  const scorePrev = showCompare ? fill(prevBuckets, previous, scoreOf) : null
-  const scoreLow = Math.max(0, Math.floor((Math.min(100, ...scoreSeries.concat(scorePrev || []).map((b) => b.value ?? 100)) - 10) / 10) * 10)
+  const { byCall, series: scoreSeries } = scoreTrend(start, end, current)
+  // The previous-period line only lines up with a chart by date.
+  const scorePrev = showCompare && !byCall ? fill(prevBuckets, previous, scoreOf) : null
+  const scoreLow = lowFor(scoreSeries.concat(scorePrev || []))
 
   const countSeries = fill(buckets, current, (cs) => cs.length)
   const booked = (cs) => cs.filter((c) => c.report.outcome?.status === 'meeting_booked').length
@@ -403,7 +436,8 @@ export default function Dashboard({ calls, range, compare, onOpen, onShowCalls }
 
   const toReview = [...current].sort((a, b) => a.report.overallScore - b.report.overallScore).slice(0, 4)
 
-  const period = showCompare ? 'vs previous period' : null
+  const before = `The ${r.days} days before`
+  const period = showCompare ? before : null
 
   return (
     <div className="tray">
@@ -411,10 +445,10 @@ export default function Dashboard({ calls, range, compare, onOpen, onShowCalls }
         title={`Average score, ${r.label.toLowerCase()}`}
         wide
         footer={
-          showCompare && (
+          scorePrev && (
             <span className="legend">
               <span className="swatch primary" aria-hidden="true" /> {r.label}
-              <span className="swatch compare" aria-hidden="true" /> Previous period
+              <span className="swatch compare" aria-hidden="true" /> {before}
             </span>
           )
         }
@@ -424,9 +458,11 @@ export default function Dashboard({ calls, range, compare, onOpen, onShowCalls }
           {avgNow != null && <span className="metric-unit">/ 100</span>}
           <Delta now={avgNow} before={showCompare ? avgBefore : null} />
         </p>
-        <p className="metric-sub">{showCompare ? (avgBefore == null ? 'No calls in the previous period' : `${avgBefore} previous period`) : `${current.length} graded calls`}</p>
+        <p className="metric-sub">
+          {showCompare && avgBefore != null ? `${avgBefore} in the ${r.days} days before` : callCount(current.length, byCall)}
+        </p>
         {current.length ? (
-          <LineChart buckets={scoreSeries} compare={scorePrev} min={scoreLow} max={100} bands height={240} />
+          <LineChart buckets={scoreSeries} compare={scorePrev} min={scoreLow} max={100} bands height={240} valueLabel={byCall ? 'Score' : 'Average score'} />
         ) : (
           <NoData height={240} text="No calls in this period" />
         )}
@@ -437,11 +473,11 @@ export default function Dashboard({ calls, range, compare, onOpen, onShowCalls }
           {current.length}
           <Delta now={current.length} before={showCompare ? previous.length : null} unit="" />
         </p>
-        <p className="metric-sub">{showCompare ? `${previous.length} previous period` : 'In this period'}</p>
+        <p className="metric-sub">{showCompare ? `${previous.length} in the ${r.days} days before` : 'In this period'}</p>
         {current.length ? <BarChart buckets={countSeries} /> : <NoData />}
       </Tile>
 
-      <Tile title="Skills" footer={period && <span className="legend"><span className="tick-key" aria-hidden="true" /> Previous period</span>}>
+      <Tile title="Skills" footer={period && <span className="legend"><span className="tick-key" aria-hidden="true" /> {before}</span>}>
         {skillList.length ? (
           <ul className="skill-bars">
             {skillList.map((s) => (
@@ -473,11 +509,11 @@ export default function Dashboard({ calls, range, compare, onOpen, onShowCalls }
           <>
             <p className="metric">
               {booked(current)}
-              <span className="metric-unit">meetings booked</span>
+              <span className="metric-unit">{booked(current) === 1 ? 'meeting booked' : 'meetings booked'}</span>
             </p>
             <p className="metric-sub">
               {bookedRate(current)}% of calls
-              {showCompare && previous.length > 0 && `, ${bookedRate(previous)}% previous period`}
+              {showCompare && previous.length > 0 && ` (${bookedRate(previous)}% in the ${r.days} days before)`}
             </p>
             <div className="stack" role="img" aria-label="Share of call outcomes">
               {outcomeCounts.map((o) => (
@@ -507,7 +543,7 @@ export default function Dashboard({ calls, range, compare, onOpen, onShowCalls }
                 <div className="struggle-head">
                   <strong>{t.label}</strong>
                   <span className="muted num">
-                    {t.missed} of {t.total} missed
+                    {t.missed} of {t.total} not handled well
                   </span>
                 </div>
                 <div className="track">
