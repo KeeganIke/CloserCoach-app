@@ -7,6 +7,5 @@ export const sessionToken = defineFunction({
   timeoutSeconds: 10,
   environment: {
     OPENAI_API_KEY: secret('OPENAI_API_KEY'),
-    ACCESS_CODE: secret('ACCESS_CODE'),
   },
 })

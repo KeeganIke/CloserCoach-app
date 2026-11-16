@@ -1,9 +1,8 @@
 // Amplify backend function that hands the browser a short-lived OpenAI
 // Realtime token. The real OPENAI_API_KEY never leaves this function.
 //
-// Both values are Amplify secrets (Amplify console > Hosting > Secrets):
+// The key is an Amplify secret (Amplify console > Hosting > Secrets):
 //   OPENAI_API_KEY  - the secret key from platform.openai.com
-//   ACCESS_CODE     - the code people must enter before starting a call
 
 import { seal, sealHidden, unseal, type Hidden } from '../shared/hidden'
 import { normalizeOffer, offerText, openOfferContext } from '../shared/offer'
@@ -66,7 +65,7 @@ export const handler = async (event: FunctionUrlEvent) => {
     return json(405, { error: 'Method not allowed' })
   }
 
-  let body: { accessCode?: string; offer?: unknown; analysis?: unknown; recent?: unknown } = {}
+  let body: { offer?: unknown; analysis?: unknown; recent?: unknown } = {}
   try {
     const raw = event.isBase64Encoded ? Buffer.from(event.body || '', 'base64').toString() : event.body
     body = JSON.parse(raw || '{}')
@@ -74,11 +73,6 @@ export const handler = async (event: FunctionUrlEvent) => {
     return json(400, { error: 'Bad request' })
   }
 
-  // Case-insensitive so autocorrected links ("Closer2026" vs "closer2026") still work.
-  const normalize = (code: unknown) => String(code ?? '').trim().toLowerCase()
-  if (!process.env.ACCESS_CODE || normalize(body.accessCode) !== normalize(process.env.ACCESS_CODE)) {
-    return json(401, { error: 'Wrong access code' })
-  }
 
   const secret = process.env.OPENAI_API_KEY || ''
   const offer = normalizeOffer(body.offer)

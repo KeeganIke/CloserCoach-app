@@ -2237,55 +2237,12 @@ p.hint {
   gap: 14px;
 }
 
-.secret {
-  position: relative;
-}
 
-.secret .input {
-  padding-right: 64px;
-}
 
-.secret-toggle {
-  position: absolute;
-  top: 50%;
-  right: 8px;
-  transform: translateY(-50%);
-  padding: 4px 8px;
-  border: none;
-  border-radius: 6px;
-  background: none;
-  color: var(--accent);
-  font-size: 12px;
-  font-weight: 600;
-  cursor: pointer;
-}
 
-.secret-toggle:hover {
-  background: var(--accent-wash);
-}
 
-.code-saved {
-  display: flex;
-  align-items: center;
-  gap: 6px;
-  margin: 0 0 16px;
-  padding: 10px 12px;
-  border-radius: 10px;
-  color: var(--good);
-  background: var(--good-wash);
-  font-size: 13px;
-  font-weight: 600;
-}
 
-.code-saved .icon {
-  width: 16px;
-  height: 16px;
-  stroke-width: 2.6;
-}
 
-.code-saved .text-button {
-  margin-left: auto;
-}
 
 .soft-warning {
   display: flex;
@@ -2693,22 +2650,9 @@ p.hint {
   box-shadow: 0 0 0 3px rgba(106, 160, 255, 0.25);
 }
 
-.dial-card .secret-toggle {
-  color: #8fb6ff;
-}
 
-.dial-card .secret-toggle:hover {
-  background: rgba(255, 255, 255, 0.08);
-}
 
-.dial-card .code-saved {
-  color: #7ee2a8;
-  background: rgba(95, 207, 146, 0.12);
-}
 
-.dial-card .code-saved .text-button {
-  color: #8fb6ff;
-}
 
 .dial-card .soft-warning {
   color: #f6d796;

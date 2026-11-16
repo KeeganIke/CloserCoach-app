@@ -5,8 +5,8 @@ import { sessionToken } from './functions/session-token/resource'
 
 const backend = defineBackend({ sessionToken, coachReport })
 
-// Public HTTPS URL for a function. The access code check inside each
-// handler is what keeps strangers out.
+// Public HTTPS URL for a function. Anyone can use the app (the contest needs no
+// login); the OpenAI spend cap is the limit on cost.
 function publicUrl(fn: IFunction) {
   return fn.addFunctionUrl({
     authType: FunctionUrlAuthType.NONE,

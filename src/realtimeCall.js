@@ -11,7 +11,7 @@ export function saysGoodbye(text) {
 }
 
 // onOwnerHungUp: called when the owner says goodbye and their voice has finished.
-export async function startCall({ tokenUrl, accessCode, offer, analysis, recent, onTranscript, onAudioBlocked, onOwnerHungUp }) {
+export async function startCall({ tokenUrl, offer, analysis, recent, onTranscript, onAudioBlocked, onOwnerHungUp }) {
   if (!tokenUrl) throw new Error("The call backend isn't deployed yet.")
 
   // Browsers (Safari especially) only allow sound that starts during a click. The
@@ -24,7 +24,7 @@ export async function startCall({ tokenUrl, accessCode, offer, analysis, recent,
   const tokenRes = await fetch(tokenUrl, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ accessCode, offer, analysis, recent }),
+    body: JSON.stringify({ offer, analysis, recent }),
   })
   const tokenData = await tokenRes.json().catch(() => ({}))
   if (!tokenRes.ok) throw Object.assign(new Error(tokenData.error || 'Could not start the call'), { status: tokenRes.status })

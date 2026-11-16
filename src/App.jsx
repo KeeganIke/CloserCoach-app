@@ -13,8 +13,6 @@ import { analyzeOffer, clearAnalysis, loadAnalysis, loadRecent, pickAhead, remem
 import { OFFER_LIMITS, isComplete, loadOffer, normalizeOffer, offerText, productText, sameOffer, storeOffer } from './offer.js'
 import { MAX_CALL_SECONDS, REPORT_URL, TOKEN_URL } from './config.js'
 
-const CODE_KEY = 'closer-coach-access-code'
-
 // Settings are a per-device convenience; the app works without storage.
 function readStored(key, fallback) {
   try {
@@ -32,23 +30,8 @@ function store(key, value) {
   }
 }
 
-// A shared link like /?code=XYZ fills in the access code so people can start a call
-// right away. Changing ACCESS_CODE in Amplify secrets turns old links off.
-// Any capitalization of "code" works, since email apps autocorrect it to "Code".
-const linkCode =
-  [...new URLSearchParams(window.location.search)].find(([key]) => key.toLowerCase() === 'code')?.[1] || ''
-
 // /?regrade shows a box for grading a saved transcript instead of starting a call.
 const regradeMode = [...new URLSearchParams(window.location.search).keys()].some((key) => key.toLowerCase() === 'regrade')
-
-function readSavedCode() {
-  if (linkCode) return linkCode
-  try {
-    return localStorage.getItem(CODE_KEY) || ''
-  } catch {
-    return ''
-  }
-}
 
 function formatTime(seconds) {
   const m = Math.floor(seconds / 60)
@@ -331,28 +314,6 @@ function OwnersStatus({ analysis, onRetry }) {
   )
 }
 
-// Password field with a show/hide toggle.
-function SecretInput({ value, onChange, label, describedBy }) {
-  const [shown, setShown] = useState(false)
-  return (
-    <div className="secret">
-      <input
-        className="input"
-        type={shown ? 'text' : 'password'}
-        value={value}
-        onChange={(e) => onChange(e.target.value)}
-        aria-label={label}
-        aria-describedby={describedBy}
-        autoComplete="off"
-        required
-      />
-      <button type="button" className="secret-toggle" onClick={() => setShown((v) => !v)} aria-pressed={shown}>
-        {shown ? 'Hide' : 'Show'}
-      </button>
-    </div>
-  )
-}
-
 function Alert({ children }) {
   return (
     <p className="alert" role="alert">
@@ -395,8 +356,6 @@ function PhoneArt() {
 function App() {
   const [view, setView] = useState('home') // home | progress | analytics | practice | calls | settings | saved (shown when no call is on screen)
   const [phase, setPhase] = useState('setup') // setup | connecting | live | ended
-  const [accessCode, setAccessCode] = useState(readSavedCode)
-  const [codeSaved, setCodeSaved] = useState(() => Boolean(readSavedCode()))
   const [error, setError] = useState('')
   const [persona, setPersona] = useState(null)
   const [hidden, setHidden] = useState(null) // sealed owner secret for the report's reveal
@@ -438,12 +397,12 @@ function App() {
 
   // Gets the businesses for an offer ready. A second request for the same offer
   // waits on the first instead of starting another. Resolves to the new status.
-  const prepareOwners = (fields, code = accessCode) => {
+  const prepareOwners = (fields) => {
     const key = productText(fields)
     if (inFlight.current?.key === key) return inFlight.current.promise
     setAnalysis({ status: 'loading' })
     const current = () => inFlight.current?.key === key
-    const promise = analyzeOffer({ reportUrl: REPORT_URL, accessCode: code, offer: fields })
+    const promise = analyzeOffer({ reportUrl: REPORT_URL, offer: fields })
       .then(analysisState, (err) => ({ status: 'error', error: err.detail || err.message }))
       .then((state) => {
         if (current()) {
@@ -465,16 +424,10 @@ function App() {
       setAnalysis(analysisState(saved))
       return
     }
-    if (!codeSaved || !accessCode) {
-      setAnalysis(analysisState(saved))
-      return
-    }
     prepareOwners(savedOffer)
-  }, [savedText, codeSaved])
+  }, [savedText])
 
-  const pickEarly = (fields) => {
-    if (codeSaved && accessCode) pickAhead({ reportUrl: REPORT_URL, accessCode, offer: fields })
-  }
+  const pickEarly = (fields) => pickAhead({ reportUrl: REPORT_URL, offer: fields })
 
   const saveOffer = () => {
     const clean = normalizeOffer(offer)
@@ -505,7 +458,6 @@ function App() {
       const kept = realLines(callLines)
       const graded = await fetchReport({
         reportUrl: REPORT_URL,
-        accessCode,
         persona: callPersona,
         offer: savedText,
         hidden: callHidden,
@@ -522,7 +474,6 @@ function App() {
   }
 
   const gradeSaved = (savedPersona, savedLines, reveal) => {
-    store(CODE_KEY, accessCode)
     setPersona(savedPersona)
     setHidden(null)
     setSavedReveal(reveal)
@@ -561,22 +512,16 @@ function App() {
     setLines([])
     setRetryAudio(null)
     stickToBottom.current = true
-    store(CODE_KEY, accessCode)
-    setCodeSaved(true)
 
     // Every call is with a business that matches the offer, so wait for them.
     const ready = loadAnalysis(fields)
     if (!ready) {
       setPhase('preparing')
-      const state = await prepareOwners(fields, accessCode)
+      const state = await prepareOwners(fields)
       if (state.status === 'error') {
-        const wrongCode = /access code/i.test(state.error || '') || /401/.test(state.error || '')
         setError(
-          wrongCode
-            ? "That access code isn't right. Check it and try again."
-            : `Your businesses aren't ready yet, so the call didn't start. Try again in a moment.${state.error ? ` (${state.error})` : ''}`,
+          `Your businesses aren't ready yet, so the call didn't start. Try again in a moment.${state.error ? ` (${state.error})` : ''}`,
         )
-        if (wrongCode) setCodeSaved(false)
         setPhase('setup')
         return
       }
@@ -585,7 +530,6 @@ function App() {
     try {
       const call = await startCall({
         tokenUrl: TOKEN_URL,
-        accessCode,
         offer: fields,
         analysis: loadAnalysis(fields)?.sealed,
         recent: loadRecent(),
@@ -602,7 +546,6 @@ function App() {
       window.scrollTo(0, 0)
     } catch (err) {
       setError(err.name === 'NotAllowedError' ? 'Microphone access is needed to make a call.' : err.message)
-      if (/access code/i.test(err.message)) setCodeSaved(false)
       // The server couldn't use the saved businesses: get fresh ones for next time.
       if (err.status === 409) {
         setError('Your businesses were out of date, so they are being rebuilt. Start the call again in a few seconds.')
@@ -826,25 +769,6 @@ function App() {
                 <p className="help-text">
                   The owner of a business you sell to picks up. Calls end after {MAX_CALL_SECONDS / 60} minutes.
                 </p>
-                {/* A saved or linked code collapses to one line, unless it was rejected. */}
-                {(codeSaved || linkCode) && accessCode && !/access code/i.test(error) ? (
-                  <p className="code-saved">
-                    <Icon name="check" /> Access code saved
-                    <button type="button" className="text-button" onClick={() => setCodeSaved(false)}>
-                      Change
-                    </button>
-                  </p>
-                ) : (
-                  <div className="field">
-                    <span className="field-label" id="code-label">
-                      Access code
-                    </span>
-                    <SecretInput value={accessCode} onChange={setAccessCode} label="Access code" describedBy="code-help" />
-                    <span id="code-help" className="hint">
-                      Remembered on this device.
-                    </span>
-                  </div>
-                )}
                 {!isComplete(offer) && !regradeMode && (
                   <p className="soft-warning">
                     <Icon name="alert" /> Fill in your offer to start a call.
@@ -972,29 +896,6 @@ function App() {
                 onRetry={() => prepareOwners(savedOffer)}
                 compact
               />
-            </section>
-
-            <section className="card setting">
-              <div className="setting-text">
-                <h2>Access code</h2>
-                <p>The code you were given to use Closer Coach. You need it to start a call.</p>
-              </div>
-              <div className="setting-control">
-                <SecretInput value={accessCode} onChange={setAccessCode} label="Access code" />
-                <div className="offer-foot">
-                  <span />
-                  <button
-                    className="button secondary small-button"
-                    onClick={() => {
-                      store(CODE_KEY, accessCode)
-                      setCodeSaved(Boolean(accessCode))
-                      notify('Access code saved')
-                    }}
-                  >
-                    Save code
-                  </button>
-                </div>
-              </div>
             </section>
 
             {loadSample && (

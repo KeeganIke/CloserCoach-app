@@ -8,6 +8,5 @@ export const coachReport = defineFunction({
   timeoutSeconds: 240,
   environment: {
     OPENAI_API_KEY: secret('OPENAI_API_KEY'),
-    ACCESS_CODE: secret('ACCESS_CODE'),
   },
 })

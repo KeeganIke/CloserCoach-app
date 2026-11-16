@@ -69,15 +69,15 @@ let picking = null // { audience, promise } while businesses are being picked ah
 
 // Starts picking businesses as soon as the rep has filled in what they sell and
 // who to, so saving only waits for the details. Quietly does nothing if it can't.
-export function pickAhead({ reportUrl, accessCode, offer }) {
+export function pickAhead({ reportUrl, offer }) {
   const n = normalizeOffer(offer)
   const audience = n.audience.toLowerCase()
-  if (!reportUrl || !accessCode || !n.product || !n.audience) return
+  if (!reportUrl || !n.product || !n.audience) return
   if (picking?.audience === audience || reusableFor(n)) return
   const promise = fetch(reportUrl, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ action: 'pick-businesses', accessCode, offer: { product: n.product, audience: n.audience } }),
+    body: JSON.stringify({ action: 'pick-businesses', offer: { product: n.product, audience: n.audience } }),
   })
     .then((res) => (res.ok ? res.json() : null))
     .then((data) => {
@@ -97,11 +97,11 @@ export function pickAhead({ reportUrl, accessCode, offer }) {
 
 // One request. `previous` is an earlier sealed result: the server keeps its
 // businesses if the audience is the same and its finished ones if the offer is.
-async function requestAnalysis({ reportUrl, accessCode, offer, previous }) {
+async function requestAnalysis({ reportUrl, offer, previous }) {
   const res = await fetch(reportUrl, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ action: 'analyze-offer', accessCode, offer: normalizeOffer(offer), previous }),
+    body: JSON.stringify({ action: 'analyze-offer', offer: normalizeOffer(offer), previous }),
   })
   const data = await res.json().catch(() => ({}))
   if (!res.ok || typeof data.analysis !== 'string') {
@@ -117,7 +117,7 @@ async function requestAnalysis({ reportUrl, accessCode, offer, previous }) {
 // Gets every business ready, retrying on its own until all are done or it runs
 // out of tries. Returns { sealed, ready, missing, detail }; throws only when no
 // business could be made ready at all.
-export async function analyzeOffer({ reportUrl, accessCode, offer, rounds = 3 }) {
+export async function analyzeOffer({ reportUrl, offer, rounds = 3 }) {
   if (!reportUrl) throw new Error("The backend isn't deployed yet.")
   const started = performance.now()
   // Businesses still being picked ahead: wait for them rather than pick twice.
@@ -128,7 +128,7 @@ export async function analyzeOffer({ reportUrl, accessCode, offer, rounds = 3 })
   for (let round = 0; round < rounds; round++) {
     if (round) await wait(2000 * round)
     try {
-      const result = await requestAnalysis({ reportUrl, accessCode, offer, previous })
+      const result = await requestAnalysis({ reportUrl, offer, previous })
       best = result
       previous = result.sealed
       storeAnalysis(offer, result)
@@ -136,7 +136,6 @@ export async function analyzeOffer({ reportUrl, accessCode, offer, rounds = 3 })
       lastError = Object.assign(new Error('Some businesses failed'), { detail: result.detail })
     } catch (err) {
       lastError = err
-      if (err.status === 401) break // wrong access code: retrying won't help
     }
   }
   if (best) return { ...best, detail: lastError?.detail || '' }

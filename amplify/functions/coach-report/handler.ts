@@ -280,7 +280,7 @@ export const handler = async (event: FunctionUrlEvent) => {
     return json(405, { error: 'Method not allowed' })
   }
 
-  let body: { action?: string; previous?: string; accessCode?: string; persona?: Persona; lines?: Line[]; offer?: string; hidden?: string } = {}
+  let body: { action?: string; previous?: string; persona?: Persona; lines?: Line[]; offer?: string; hidden?: string } = {}
   try {
     const raw = event.isBase64Encoded ? Buffer.from(event.body || '', 'base64').toString() : event.body
     body = JSON.parse(raw || '{}')
@@ -288,11 +288,6 @@ export const handler = async (event: FunctionUrlEvent) => {
     return json(400, { error: 'Bad request' })
   }
 
-  // Case-insensitive so autocorrected links ("Closer2026" vs "closer2026") still work.
-  const normalize = (code: unknown) => String(code ?? '').trim().toLowerCase()
-  if (!process.env.ACCESS_CODE || normalize(body.accessCode) !== normalize(process.env.ACCESS_CODE)) {
-    return json(401, { error: 'Wrong access code' })
-  }
 
   if (body.action === 'analyze-offer') return analyzeOffer(body.offer, body.previous)
   if (body.action === 'pick-businesses') return pickAhead(body.offer)
