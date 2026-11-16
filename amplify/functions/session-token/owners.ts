@@ -47,7 +47,7 @@ export const TRAIT_NAMES: Record<Trait, string> = {
 // The one sentence the owner gets for each trait level. The AI never sees the number.
 export const TRAIT_SENTENCES: Record<Trait, Record<Level, string>> = {
   patience: {
-    1: 'You want the point in seconds. If the caller rambles or sounds generic, you cut them off and say you have to go.',
+    1: 'You want the point in seconds and push the caller to get to it. If they keep rambling after that, you say you have to go and hang up, even early in the call.',
     2: 'You give a caller a little time, but you get short quickly if it drifts.',
     3: 'You give a caller a few minutes if what they say sounds relevant to you.',
     4: "You're happy to talk and answer questions, even with a stranger on the phone.",
@@ -56,7 +56,7 @@ export const TRAIT_SENTENCES: Record<Trait, Record<Level, string>> = {
     1: 'You tend to take people at their word.',
     2: "You're mildly doubtful of big claims.",
     3: 'You want a reason before you believe a claim.',
-    4: 'You need proof for everything. When someone makes a claim, you ask how they know.',
+    4: "You don't trust salespeople. You ask how you know they're legit, say you've heard this pitch before, and worry about getting scammed.",
   },
   friendliness: {
     1: 'You are cold and all business on the phone.',
@@ -89,7 +89,7 @@ export const TRAIT_SENTENCES: Record<Trait, Record<Level, string>> = {
     4: 'You talk a lot and give plenty of detail when asked.',
   },
   decisiveness: {
-    1: 'You never decide anything on a call. You always need to think it over.',
+    1: 'You never buy anything on a call and like to think things over. A short meeting to learn more is the most you would agree to, and only if the rep earned it.',
     2: 'You rarely commit on the spot.',
     3: "You'll agree to a small next step if you're convinced.",
     4: 'You decide quickly once you are convinced.',
@@ -374,7 +374,7 @@ export const PERSONALITY_CONCERNS: Record<
   PersonalityId,
   ConcernPick & { chance: number; reason: string; bySituation?: Partial<Record<Situation, ConcernPick & { reason?: string }>> }
 > = {
-  skeptic: { type: 'trust', angles: ['too_good', 'who'], chance: 0.7, reason: 'You doubt big claims from salespeople.' },
+  skeptic: { type: 'trust', angles: ['too_good', 'who', 'all_same'], chance: 0.7, reason: "You don't trust salespeople and you've heard pitches like this before." },
   busy: { type: 'time', angles: ['quick', 'slammed'], chance: 0.6, reason: "You're short on time and want the point fast." },
   friendly: { type: 'commitment', angles: ['not_today', 'try_first'], chance: 0.4, reason: 'You like to sleep on decisions.' },
   analytical: { type: 'payoff', angles: ['numbers'], chance: 1, reason: 'You always want the specifics before you believe something.' },
@@ -395,10 +395,10 @@ export const PERSONALITY_CONCERNS: Record<
 // ---------- What they need before saying yes ----------
 
 export const PERSONALITY_NEEDS: Record<PersonalityId, string> = {
-  skeptic: 'Proof that it works, not promises.',
+  skeptic: "A reason to believe the caller is legit and you won't get burned, not promises.",
   busy: 'Very little setup or effort on your part.',
   friendly: 'To like and trust the person calling.',
-  analytical: 'Clear numbers and specifics: what it costs, what you get, and how it pays off.',
+  analytical: 'Clear specifics and numbers: what it costs, what you get, and an honest way to tell whether it pays off.',
   old_school: "Confidence it won't disrupt how things run.",
   penny_pincher: "To be sure it's clearly worth the money.",
 }

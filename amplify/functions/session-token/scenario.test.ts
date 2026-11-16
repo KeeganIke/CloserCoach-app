@@ -40,8 +40,17 @@ test('skeptical or change-averse owners carry 2–3 concerns; others 1–3', () 
   }
 })
 
+test('busy owners usually have one concern, sometimes two, rarely three', () => {
+  const busy = all.filter((s) => s.personality.id === 'busy')
+  const share = (n: number) => busy.filter((s) => s.concerns.length === n).length / busy.length
+  assert.ok(share(1) > 0.45, `one concern: ${share(1)}`)
+  assert.ok(share(3) < 0.15, `three concerns: ${share(3)}`)
+  assert.ok(share(2) > share(3))
+  for (const s of busy) if (s.concerns.filter((c) => c.major).length === 2) assert.equal(s.concerns.length, 3, `scenario ${s.id}`)
+})
+
 test('every personality can get a hard call: two majors or three concerns', () => {
-  for (const p of PERSONALITIES) {
+  for (const p of PERSONALITIES.filter((x) => x.id !== 'busy')) {
     const mine = all.filter((s) => s.personality.id === p.id)
     assert.ok(mine.some((s) => s.concerns.filter((c) => c.major).length === 2), `${p.label} never got two majors`)
     assert.ok(mine.some((s) => s.concerns.length === 3), `${p.label} never got three concerns`)

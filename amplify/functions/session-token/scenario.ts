@@ -192,6 +192,13 @@ export function buildScenario(id: number, offer: OfferContext): Scenario {
 // How often the business gives a second concern (when it has one to give).
 const SECOND_BUSINESS_CONCERN = 0.5
 
+// Busy owners have no time to raise much: usually one concern, sometimes two,
+// rarely three. Two majors only when they were dealt three.
+function busyConcernCount(rand: Rand) {
+  const r = rand()
+  return r < 0.6 ? 1 : r < 0.9 ? 2 : 3
+}
+
 function makeConcern(rand: Rand, type: ConcernTypeId, angles: string[], reason: string, major: boolean, source: Concern['source']): Concern {
   const t = CONCERN_TYPES[type]
   const angleId = pick(rand, angles)
@@ -203,7 +210,7 @@ function makeConcern(rand: Rand, type: ConcernTypeId, angles: string[], reason: 
 // from the business, not from how the owner talks. A friendly owner who got
 // burned and is cutting costs is as hard as a skeptic. Only business concerns
 // can be major; personality can add one minor concern. Skeptical or
-// change-averse owners never have just one concern.
+// change-averse owners never have just one concern. Busy owners usually have one.
 function pickConcerns(
   rand: Rand,
   o: {
@@ -218,7 +225,9 @@ function pickConcerns(
   const cautious = o.traits.skepticism === 4 || o.traits.openness === 1
   const max = 3
   const min = cautious ? 2 : 1
-  const maxMajors = 2
+  const busy = o.personality === 'busy'
+  const target = busy ? busyConcernCount(rand) : 0
+  const maxMajors = busy && target < 3 ? 1 : 2
 
   // Business candidates: one per type, a major version beats a minor one.
   const byType = new Map<ConcernTypeId, { angles: string[]; reason: string; major: boolean }>()
@@ -258,8 +267,8 @@ function pickConcerns(
     return true
   }
   takeBusiness()
-  // Sometimes a second business concern, the same chance for every personality.
-  if (candidates.length && concerns.length < max && rand() < SECOND_BUSINESS_CONCERN) takeBusiness()
+  // Sometimes a second business concern, the same chance for every personality but busy.
+  if (!busy && candidates.length && concerns.length < max && rand() < SECOND_BUSINESS_CONCERN) takeBusiness()
 
   const nature = PERSONALITY_CONCERNS[o.personality]
   const p = { ...nature, ...nature.bySituation?.[o.situation] }
@@ -280,7 +289,15 @@ function pickConcerns(
     }
     if (concerns.length >= max) return false
     concerns.push(makeConcern(rand, p.type, p.angles, p.reason, false, 'personality'))
+    // The business can't raise the same type again.
+    const dup = candidates.findIndex(([type]) => type === p.type)
+    if (dup >= 0) candidates.splice(dup, 1)
     return true
+  }
+  if (busy) {
+    if (concerns.length < target && rand() < p.chance) addPersonality()
+    while (concerns.length < target) if (!takeBusiness()) break
+    return concerns
   }
   if (rand() < p.chance) addPersonality()
   while (concerns.length < min) {
