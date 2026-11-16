@@ -126,7 +126,10 @@ function Reveal({ hidden, coaching, name }) {
           <strong>What {name} was really thinking</strong>
           <span className="muted">{coaching || 'The problems and concerns they kept to themselves.'}</span>
         </span>
-        <span className="reveal-more">View details</span>
+        <span className="reveal-more">
+          <span className="when-closed">View details</span>
+          <span className="when-open">Hide details</span>
+        </span>
       </summary>
       <h4>Real problems</h4>
       <ul className="report-list">

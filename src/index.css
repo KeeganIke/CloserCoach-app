@@ -1755,8 +1755,14 @@ p.hint {
   font-weight: 600;
 }
 
-.reveal[open] .reveal-more {
-  visibility: hidden;
+/* The same spot toggles: "View details" when closed, "Hide details" when open. */
+.reveal .when-open,
+.reveal[open] .when-closed {
+  display: none;
+}
+
+.reveal[open] .when-open {
+  display: inline;
 }
 
 .reveal > :not(summary) {
