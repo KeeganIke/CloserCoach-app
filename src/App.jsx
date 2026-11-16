@@ -570,8 +570,13 @@ function App() {
       setPhase('preparing')
       const state = await prepareOwners(fields, accessCode)
       if (state.status === 'error') {
-        setError(`Your businesses aren't ready yet, so the call didn't start. Try again in a moment.${state.error ? ` (${state.error})` : ''}`)
-        if (/access code/i.test(state.error || '') || /401/.test(state.error || '')) setCodeSaved(false)
+        const wrongCode = /access code/i.test(state.error || '') || /401/.test(state.error || '')
+        setError(
+          wrongCode
+            ? "That access code isn't right. Check it and try again."
+            : `Your businesses aren't ready yet, so the call didn't start. Try again in a moment.${state.error ? ` (${state.error})` : ''}`,
+        )
+        if (wrongCode) setCodeSaved(false)
         setPhase('setup')
         return
       }
