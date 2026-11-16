@@ -6,7 +6,7 @@ import GradingProgress from './GradingProgress.jsx'
 import Regrade from './Regrade.jsx'
 import MyProgress from './Progress.jsx'
 import Icon, { Logo } from './icons.jsx'
-import Dashboard, { CallTable, Overview, RANGES, StatCards, coachingFocus, formatDate } from './Dashboard.jsx'
+import Dashboard, { CallTable, Overview, RANGES, StatCards, formatDate } from './Dashboard.jsx'
 import { clearHistory, deleteCall, loadHistory, saveCall } from './history.js'
 import { analyzeOffer, clearAnalysis, loadAnalysis, loadRecent, pickAhead, rememberCall } from './offerAnalysis.js'
 import { OFFER_LIMITS, isComplete, loadOffer, normalizeOffer, offerText, productText, sameOffer, storeOffer } from './offer.js'
@@ -654,7 +654,6 @@ function App() {
   // Hang up if the page is closed mid-call.
   useEffect(() => () => callRef.current?.hangup(), [])
 
-  const focus = coachingFocus(history, '30')
   const focusPage = !onCallScreen && view === 'practice'
   const active = onCallScreen ? 'practice' : view === 'saved' ? 'calls' : view
   const ownerNames = [...new Set(history.map((c) => c.persona?.name).filter(Boolean))]
@@ -703,17 +702,7 @@ function App() {
                   Begin call
                 </button>
               </div>
-              {focus ? (
-                <div className="focus-panel">
-                  <h3 className="focus-title">
-                    <Icon name="bulb" /> Work on {focus.skill}
-                  </h3>
-                  <p className="focus-meta">{focus.percent}% in the {focus.period}, your lowest skill</p>
-                  {focus.tip && <p className="focus-tip">{focus.tip}</p>}
-                </div>
-              ) : (
-                <PhoneArt />
-              )}
+              <PhoneArt />
             </section>
             {history.length === 0 && (
               <section className="card empty-strip">

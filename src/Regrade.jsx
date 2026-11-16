@@ -5,14 +5,9 @@
 
 import { useState } from 'react'
 
-// Same owners as the call backend (amplify/functions/session-token/handler.ts).
-export const OWNERS = [
-  { name: 'Dave', business: "Dave's Auto Repair", detail: 'a 3-bay auto shop with 4 mechanics' },
-  { name: 'Maria', business: 'Bella Cucina', detail: 'a family Italian restaurant, about 40 seats' },
-  { name: 'Tom', business: 'Summit Roofing', detail: 'a roofing company with 2 crews' },
-  { name: 'Linda', business: 'Bright Smiles Dental', detail: 'a dental practice with 2 dentists' },
-  { name: 'Mike', business: 'Iron Works Gym', detail: 'an independent gym with about 300 members' },
-]
+// Same owner names as the call backend (amplify/functions/session-token/owners.ts).
+// Businesses change every call, so the business is typed in from the report.
+export const OWNERS = [{ name: 'Dave' }, { name: 'Maria' }, { name: 'Tom' }, { name: 'Linda' }, { name: 'Mike' }]
 
 // Reads a transcript copied from the app ("You" / owner name before each line, either
 // on its own line, followed by a colon, or stuck to the text like "MikeIron Works…").
@@ -79,13 +74,16 @@ export function parseReveal(text) {
 
 export default function Regrade({ onGrade }) {
   const [owner, setOwner] = useState(OWNERS[0].name)
+  const [business, setBusiness] = useState('')
   const [text, setText] = useState('')
   const [revealText, setRevealText] = useState('')
   const [error, setError] = useState('')
 
   const submit = (e) => {
     e.preventDefault()
-    const persona = OWNERS.find((o) => o.name === owner)
+    // "North Ridge Roofing, a roofing crew with 5 employees", as shown under the owner's name.
+    const [name, ...rest] = business.split(',')
+    const persona = { name: owner, business: name.trim() || 'a small business', detail: rest.join(',').trim() }
     const lines = parseTranscript(text, persona.name)
     if (!lines.some((l) => l.role === 'user') || !lines.some((l) => l.role === 'assistant')) {
       setError(`Couldn't find lines from both "You" and "${persona.name}". Paste the transcript from "Show transcript".`)
@@ -101,10 +99,17 @@ export default function Regrade({ onGrade }) {
       <select className="code-input" value={owner} onChange={(e) => setOwner(e.target.value)} aria-label="Owner">
         {OWNERS.map((o) => (
           <option key={o.name} value={o.name}>
-            {o.name}, {o.business}
+            {o.name}
           </option>
         ))}
       </select>
+      <input
+        className="code-input"
+        placeholder="Business, as shown under the owner's name (e.g. North Ridge Roofing, a roofing crew with 5 employees)"
+        value={business}
+        onChange={(e) => setBusiness(e.target.value)}
+        aria-label="Business"
+      />
       <textarea
         className="offer-input"
         rows={10}
