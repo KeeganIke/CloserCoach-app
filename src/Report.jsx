@@ -217,9 +217,10 @@ const HEADLINE = [
   { id: 'closing', label: 'Closing and Next Step', icon: 'handshake' },
 ]
 
-const percentOf = (report, id) => {
+// A skill's points on this call, shown the same way as the scorecard ("12 / 20").
+const pointsOf = (report, id) => {
   const row = scorecardRows(report.categories || []).find((r) => r.id === id)
-  return row && !row.na && row.max ? Math.round((row.earned / row.max) * 100) : null
+  return row && !row.na && row.max ? { earned: row.earned, max: row.max } : null
 }
 
 // previous: reports from earlier calls, used to show change against your average.
@@ -259,15 +260,24 @@ export default function Report({ report, persona, previous = [] }) {
           </div>
         </section>
         {HEADLINE.map((h) => {
-          const pct = percentOf(report, h.id)
+          const pts = pointsOf(report, h.id)
           return (
             <section key={h.id} className="card skill-card">
               <span className="stat-icon blue">
                 <Icon name={h.icon} />
               </span>
               <span className="skill-card-label">{h.label}</span>
-              <span className="skill-card-value">{pct == null ? 'N/A' : `${pct}%`}</span>
-              {change(pct, avgOf(previous.map((r) => percentOf(r, h.id))))}
+              <span className="skill-card-value">
+                {pts ? (
+                  <>
+                    {pts.earned}
+                    <span className="skill-card-max"> / {pts.max}</span>
+                  </>
+                ) : (
+                  'N/A'
+                )}
+              </span>
+              {change(pts?.earned, avgOf(previous.map((r) => pointsOf(r, h.id)?.earned)))}
             </section>
           )
         })}

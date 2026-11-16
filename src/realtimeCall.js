@@ -2,7 +2,16 @@
 
 // offer: the offer's fields. analysis: the sealed businesses for that offer.
 // recent: sealed summaries of the last few calls, so the next owner differs.
-export async function startCall({ tokenUrl, accessCode, offer, analysis, recent, onTranscript, onAudioBlocked }) {
+// The owner ends the call when their reply finishes with a goodbye ("Thanks for
+// calling, though. Bye."). Only the end counts, so "say goodbye to missed calls"
+// mid-sentence doesn't hang up.
+export function saysGoodbye(text) {
+  const end = String(text || '').trim().slice(-40)
+  return /\b(?:good-?\s?bye|bye(?:[- ]bye)?|take care|have a good (?:one|day|night|evening))\b[\s.!,]*$/i.test(end)
+}
+
+// onOwnerHungUp: called when the owner says goodbye and their voice has finished.
+export async function startCall({ tokenUrl, accessCode, offer, analysis, recent, onTranscript, onAudioBlocked, onOwnerHungUp }) {
   if (!tokenUrl) throw new Error("The call backend isn't deployed yet.")
 
   // Browsers (Safari especially) only allow sound that starts during a click. The
@@ -41,6 +50,16 @@ export async function startCall({ tokenUrl, accessCode, offer, analysis, recent,
     audio.play().catch(() => onAudioBlocked?.(() => audio.play()))
   }
   pc.addTrack(micTrack)
+
+  // When the owner says goodbye, they hang up, like a real call: once their last
+  // words finish playing, the call ends. A backup timer covers a missing stop event.
+  let ownerSaidBye = false
+  let ownerTalking = false
+  let byeTimer
+  const hangUpSoon = (ms) => {
+    clearTimeout(byeTimer)
+    byeTimer = setTimeout(() => onOwnerHungUp?.(), ms)
+  }
 
   // Transcript lines in call order, keyed by conversation item id.
   const lines = []
@@ -84,14 +103,22 @@ export async function startCall({ tokenUrl, accessCode, offer, analysis, recent,
         break
       case 'response.output_audio_transcript.done':
         upsert(ev.item_id, 'assistant', (l) => (l.text = ev.transcript))
+        if (saysGoodbye(ev.transcript)) {
+          ownerSaidBye = true
+          // Usually the words arrive before the voice finishes; if it already has, hang up now.
+          hangUpSoon(ownerTalking ? 15000 : 800)
+        }
         break
       case 'output_audio_buffer.started':
+        ownerTalking = true
         micTrack.enabled = false
         micOnAfter(30000) // never leave the rep muted if the stop event goes missing
         break
       case 'output_audio_buffer.stopped':
       case 'output_audio_buffer.cleared':
-        micOnAfter(400)
+        ownerTalking = false
+        if (ownerSaidBye) hangUpSoon(800)
+        else micOnAfter(400)
         break
       case 'error':
         console.error('Realtime error', ev.error)
@@ -115,6 +142,7 @@ export async function startCall({ tokenUrl, accessCode, offer, analysis, recent,
 
   const hangup = () => {
     clearTimeout(micTimer)
+    clearTimeout(byeTimer)
     dc.close()
     pc.close()
     mic.getTracks().forEach((t) => t.stop())

@@ -7,6 +7,7 @@ import {
   SCHEMA,
   SITUATION_SCHEMA,
   normalizeOffer,
+  offerHash,
   offerText,
   openOfferContext,
   reusable,
@@ -19,7 +20,7 @@ import {
 } from './offer'
 
 const REASON_TYPES = Object.keys(CONCERN_TYPES).filter((t) => t !== 'fit' && t !== 'compatibility')
-const OFFER = normalizeOffer({ product: 'Missed-call text-back', audience: 'Contractors', price: '$97/month', terms: '' })!
+const OFFER = normalizeOffer({ product: 'Missed-call text-back', audience: 'Contractors', price: '$97/month', terms: '', company: '' })!
 
 // A well-formed model answer for one business.
 function details(overrides: Record<string, unknown> = {}) {
@@ -46,9 +47,13 @@ test('the offer needs what you sell, who you sell to, and the price', () => {
   assert.equal(normalizeOffer({ product: 'x', price: '$1' }), null)
   assert.equal(normalizeOffer(null), null)
   const o = normalizeOffer({ product: '  Text-back\n for shops ', audience: 'Plumbers', price: '$97', terms: 'No contract', extra: 'x' })
-  assert.deepEqual(o, { product: 'Text-back for shops', audience: 'Plumbers', price: '$97', terms: 'No contract' })
+  assert.deepEqual(o, { product: 'Text-back for shops', audience: 'Plumbers', price: '$97', terms: 'No contract', company: '' })
   assert.equal(offerText(o!), 'What I sell: Text-back for shops\nWho I sell to: Plumbers\nPrice: $97\nTerms: No contract')
   assert.ok(!offerText(OFFER).includes('Terms'))
+  // The company name goes to the owner and grader, but never changes the businesses.
+  const named = { ...o!, company: 'Brightside Web' }
+  assert.ok(offerText(named).startsWith('My company: Brightside Web\n'))
+  assert.equal(offerHash(named), offerHash(o!))
 })
 
 test('good details are cleaned up for sentences', () => {

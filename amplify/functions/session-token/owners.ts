@@ -73,7 +73,7 @@ export const TRAIT_SENTENCES: Record<Trait, Record<Level, string>> = {
   numbers: {
     1: 'You decide on gut feel, not numbers.',
     2: 'You like a rough idea of what something costs.',
-    3: 'You want to know costs and what results to expect.',
+    3: 'You want to know what it costs and what you get for it.',
     4: 'You want specifics: exact costs, what you get, and how it pays off. Vague answers don’t count for you.',
   },
   openness: {
@@ -258,7 +258,7 @@ export const CONCERN_TYPES: Record<ConcernTypeId, { label: string; angles: Angle
     ],
   },
   current: {
-    label: 'Already have someone',
+    label: 'Already have something',
     angles: [
       { id: 'happy_enough', label: 'Happy enough with it', worry: 'Switching feels like work for an unclear gain.', resolve: 'Finding the real weakness in what you have and showing a clear improvement.' },
       { id: 'loyal', label: 'Loyal to their person', worry: "You don't want to cut out someone you like.", resolve: 'Respecting that relationship and showing how this fills a gap or works alongside them.' },

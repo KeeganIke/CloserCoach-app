@@ -3,7 +3,8 @@
 export function changeText(change, unit = ' pts') {
   if (change == null) return null
   if (change === 0) return 'Same'
-  return `${change > 0 ? '↑' : '↓'} ${Math.abs(change)}${unit}`
+  const n = Math.abs(change)
+  return `${change > 0 ? '↑' : '↓'} ${n}${n === 1 && unit === ' pts' ? ' pt' : unit}`
 }
 
 export const changeTone = (change) => (change > 0 ? 'up' : change < 0 ? 'down' : 'flat')

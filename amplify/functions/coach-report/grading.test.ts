@@ -5,6 +5,7 @@ import {
   ownerWords,
   capObjectionHandling,
   termsOutsideOffer,
+  noSemicolons,
   answerStats,
   buildReport,
   inventsTerms,
@@ -510,6 +511,10 @@ test('deal terms the rep promised outside the offer box are found', () => {
   assert.deepEqual(termsOutsideOffer(offer, repLines), ['guarantee', 'money back'])
   assert.deepEqual(termsOutsideOffer(offer, repLines.slice(0, 1)), [])
   assert.deepEqual(termsOutsideOffer('', repLines), []) // no box, nothing to compare against
+
+  // A guarantee in the offer, in any words or spelling, backs money back and refunds too.
+  for (const terms of ['30 day money back guarentee', 'Satisfaction guaranteed', 'Full refund in the first month'])
+    assert.deepEqual(termsOutsideOffer(`${offer} ${terms}`, repLines), [], terms)
 })
 
 test('a slightly-off objection quote is swapped for what the owner actually said', () => {
@@ -528,4 +533,9 @@ test('a slightly-off objection quote is swapped for what the owner actually said
   assert.equal(ownerWords('We already have a guy who does our website.', call), null)
   // The rep's words don't count as the owner's.
   assert.equal(ownerWords('How are most new customers finding your shop right now?', call), null)
+})
+
+test('the report never has semicolons, but quotes of the call stay exact', () => {
+  const out = noSemicolons({ summary: 'You explained the price; she still passed.', quote: 'Yeah; fine', objection: 'No; thanks', list: ['Ends with one;'] })
+  assert.deepEqual(out, { summary: 'You explained the price. She still passed.', quote: 'Yeah; fine', objection: 'No; thanks', list: ['Ends with one.'] })
 })

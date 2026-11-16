@@ -1657,6 +1657,12 @@ p.hint {
   font-variant-numeric: tabular-nums;
 }
 
+.skill-card-max {
+  font-size: 18px;
+  font-weight: 600;
+  color: var(--muted);
+}
+
 .summary-card .result-chips {
   margin-bottom: 4px;
 }
@@ -2176,8 +2182,7 @@ p.hint {
   gap: 5px;
 }
 
-.offer-field-product,
-.offer-field-terms {
+.offer-field-product {
   grid-column: 1 / -1;
 }
 

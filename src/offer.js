@@ -4,8 +4,8 @@
 const KEY = 'closer-coach-offer-fields'
 const OLD_KEY = 'closer-coach-offer' // the single text box from before
 
-export const OFFER_LIMITS = { product: 300, audience: 120, price: 80, terms: 200 }
-export const EMPTY_OFFER = { product: '', audience: '', price: '', terms: '' }
+export const OFFER_LIMITS = { product: 300, audience: 120, price: 80, terms: 200, company: 80 }
+export const EMPTY_OFFER = { product: '', audience: '', price: '', terms: '', company: '' }
 
 const oneLine = (v) => (typeof v === 'string' ? v.trim().replace(/\s+/g, ' ') : '')
 
@@ -23,6 +23,14 @@ export const sameOffer = (a, b) => JSON.stringify(normalizeOffer(a)) === JSON.st
 
 // The offer as one text, for the grader and call history. Same format as the server.
 export function offerText(o) {
+  const n = normalizeOffer(o)
+  if (!isComplete(n)) return ''
+  return [...(n.company ? [`My company: ${n.company}`] : []), productText(n)].join('\n')
+}
+
+// The offer without the company name: the businesses are built from this, so
+// renaming the company doesn't rebuild them.
+export function productText(o) {
   const n = normalizeOffer(o)
   if (!isComplete(n)) return ''
   return [`What I sell: ${n.product}`, `Who I sell to: ${n.audience}`, `Price: ${n.price}`, ...(n.terms ? [`Terms: ${n.terms}`] : [])].join('\n')

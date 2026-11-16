@@ -9,7 +9,7 @@ import Icon, { Logo } from './icons.jsx'
 import Dashboard, { CallTable, Overview, RANGES, StatCards, coachingFocus, formatDate } from './Dashboard.jsx'
 import { clearHistory, deleteCall, loadHistory, saveCall } from './history.js'
 import { analyzeOffer, clearAnalysis, loadAnalysis, loadRecent, pickAhead, rememberCall } from './offerAnalysis.js'
-import { OFFER_LIMITS, isComplete, loadOffer, normalizeOffer, offerText, sameOffer, storeOffer } from './offer.js'
+import { OFFER_LIMITS, isComplete, loadOffer, normalizeOffer, offerText, productText, sameOffer, storeOffer } from './offer.js'
 import { MAX_CALL_SECONDS, REPORT_URL, TOKEN_URL } from './config.js'
 
 const CODE_KEY = 'closer-coach-access-code'
@@ -178,6 +178,7 @@ const OFFER_FIELDS = [
   { key: 'audience', label: 'Who you sell to', placeholder: 'e.g. Contractors: plumbers, electricians, roofers' },
   { key: 'price', label: 'Price', placeholder: 'e.g. $97/month' },
   { key: 'terms', label: 'Terms (optional)', placeholder: 'e.g. No contract, 14-day free trial' },
+  { key: 'company', label: 'Your company (optional)', placeholder: 'e.g. Brightside Web' },
 ]
 
 // The offer box used on both the Practice and Settings pages. A saved offer shows
@@ -437,7 +438,7 @@ function App() {
   // Gets the businesses for an offer ready. A second request for the same offer
   // waits on the first instead of starting another. Resolves to the new status.
   const prepareOwners = (fields, code = accessCode) => {
-    const key = offerText(fields)
+    const key = productText(fields)
     if (inFlight.current?.key === key) return inFlight.current.promise
     setAnalysis({ status: 'loading' })
     const current = () => inFlight.current?.key === key
@@ -529,6 +530,8 @@ function App() {
     gradeCall(savedLines, savedPersona, null, reveal)
   }
 
+  // The owner can hang up mid-call (they said bye); the ref always has the latest endCall.
+  const endCallRef = useRef(null)
   const endCall = () => {
     if (!callRef.current) return
     const finalLines = callRef.current.hangup()
@@ -538,6 +541,7 @@ function App() {
     window.scrollTo(0, 0)
     gradeCall(finalLines)
   }
+  endCallRef.current = endCall
 
   const handleStart = async (e) => {
     e.preventDefault()
@@ -581,6 +585,7 @@ function App() {
         recent: loadRecent(),
         onTranscript: setLines,
         onAudioBlocked: (retry) => setRetryAudio(() => retry),
+        onOwnerHungUp: () => endCallRef.current?.(),
       })
       callRef.current = call
       rememberCall(call.recent)

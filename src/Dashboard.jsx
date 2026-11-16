@@ -95,7 +95,7 @@ export function weakestSkill(report) {
     const diff = b.earned / b.max - a.earned / a.max
     return diff < 0 || (diff === 0 && b.max - b.earned > a.max - a.earned) ? b : a
   })
-  return { name: low.name, percent: Math.round((low.earned / low.max) * 100) }
+  return { name: low.name, percent: Math.round((low.earned / low.max) * 100), points: `${low.earned} / ${low.max}` }
 }
 
 function Delta({ now, before, unit = ' pts' }) {
@@ -277,7 +277,7 @@ export function CallTable({ calls, onOpen, compact = false }) {
               <td className="hide-sm">
                 <span className={`pill ${outcomeTone(r.outcome?.status, outcome.tone)}`}>{outcome.label}</span>
               </td>
-              {!compact && <td className="hide-sm muted">{weak ? `${weak.name}, ${weak.percent}%` : '—'}</td>}
+              {!compact && <td className="hide-sm muted">{weak ? `${weak.name}, ${weak.points}` : '—'}</td>}
               <td className="muted">{formatDate(c.date)}</td>
               <td className="row-go" aria-hidden="true">
                 <Icon name="chevron" />
@@ -301,7 +301,7 @@ function ReviewList({ calls, onOpen }) {
               <span className={`score-chip tone-${GRADE_TONES[c.report.performanceGrade] || 'mixed'}`}>{c.report.overallScore}</span>
               <span className="top-call-who">
                 <strong>{c.persona?.name || 'Prospect'}</strong>
-                <span className="muted">{weak ? `Weakest: ${weak.name}, ${weak.percent}%` : c.persona?.business}</span>
+                <span className="muted">{weak ? `Weakest: ${weak.name}, ${weak.points}` : c.persona?.business}</span>
               </span>
               <span className="muted top-call-date">{formatDate(c.date)}</span>
             </button>

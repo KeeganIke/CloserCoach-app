@@ -3,17 +3,18 @@
 // returns it sealed (unreadable here, so it can't spoil a call), and this
 // browser keeps it until the offer changes.
 
-import { normalizeOffer, offerText } from './offer.js'
+import { normalizeOffer, productText } from './offer.js'
 
-const KEY = 'closer-coach-offer-analysis'
-const PICKS_KEY = 'closer-coach-business-picks' // businesses picked before the offer was saved
+// The version matches the server's: a new one rebuilds saved businesses once.
+const KEY = 'closer-coach-offer-analysis-v3'
+const PICKS_KEY = 'closer-coach-business-picks-v3' // businesses picked before the offer was saved
 
 // The saved analysis for this exact offer: { sealed, ready, missing } (ready and
 // missing list kinds of business), or null if there isn't one yet.
 export function loadAnalysis(offer) {
   try {
     const saved = JSON.parse(localStorage.getItem(KEY) || 'null')
-    if (!saved || saved.offer !== offerText(offer) || typeof saved.sealed !== 'string') return null
+    if (!saved || saved.offer !== productText(offer) || typeof saved.sealed !== 'string') return null
     return { sealed: saved.sealed, ready: saved.ready || [], missing: saved.missing || [] }
   } catch {
     return null
@@ -47,7 +48,7 @@ function storeAnalysis(offer, result) {
   try {
     localStorage.setItem(
       KEY,
-      JSON.stringify({ offer: offerText(offer), audience: audienceOf(offer), sealed: result.sealed, ready: result.ready, missing: result.missing }),
+      JSON.stringify({ offer: productText(offer), audience: audienceOf(offer), sealed: result.sealed, ready: result.ready, missing: result.missing }),
     )
   } catch {
     // Not remembering just means it runs again next time.

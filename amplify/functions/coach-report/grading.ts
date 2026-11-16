@@ -334,13 +334,19 @@ const TERM_PATTERNS = [/\bfees?\b/gi, /\bguarantee[ds]?\b/gi, /\brefunds?\b/gi, 
 // A price counts as known if the same number appears ("$77 a month" vs "$77/month").
 const termKey = (term: string) => (term.includes('$') ? term.replace(/[^\d]/g, '') : normalizeText(term).replace(/\s/g, ''))
 const squash = (text: string) => normalizeText(text).replace(/\s/g, '')
+// Guarantees, refunds and money back are one promise in different words, and reps
+// misspell it ("guarentee"), so any of them in the offer backs all of them.
+const GUARANTEE_TERM = /guarantee|refund|moneyback/
+const GUARANTEE_IN_OFFER = /guar[ae]n?t|refund|moneyback|satisf/
+const termKnown = (term: string, known: string) =>
+  GUARANTEE_TERM.test(termKey(term)) ? GUARANTEE_IN_OFFER.test(known) : known.includes(termKey(term))
 const repText = (lines: Line[]) => lines.filter((l) => l.role === 'user').map((l) => l.text).join(' ')
 
 // The offer box is the source of truth for the deal. Without one, fall back to
 // what the rep said on the call.
 export function inventsTerms(line: string, offer: string, lines: Line[]) {
   const known = squash(offer.trim() ? offer : repText(lines))
-  return TERM_PATTERNS.some((re) => (line.match(re) || []).some((term) => !known.includes(termKey(term))))
+  return TERM_PATTERNS.some((re) => (line.match(re) || []).some((term) => !termKnown(term, known)))
 }
 
 // Deal terms the rep promised on the call that their offer box doesn't include
@@ -349,7 +355,7 @@ export function termsOutsideOffer(offer: string, lines: Line[]) {
   if (!offer.trim()) return []
   const known = squash(offer)
   const said = TERM_PATTERNS.flatMap((re) => repText(lines).match(re) || [])
-  return [...new Set(said.filter((t) => !known.includes(termKey(t))).map((t) => t.toLowerCase().trim()))]
+  return [...new Set(said.filter((t) => !termKnown(t, known)).map((t) => t.toLowerCase().trim()))]
 }
 
 // Objection Handling can't be rated above what its own objection cards show.
@@ -384,13 +390,26 @@ export function dropInventedTerms(output: ModelOutput, offer: string, lines: Lin
 export type GradeResult = { ok: true; report: Report } | { ok: false; reason: 'invalid' | 'too_short'; error: string }
 
 // Turns the model's raw JSON into the final report.
+// Semicolons read as machine-written, so the report never has them: each becomes a
+// sentence break. Quotes of what was said on the call are left as they are.
+export function noSemicolons<T>(value: T, key = ''): T {
+  if (typeof value === 'string') {
+    if (key === 'quote' || key === 'objection') return value
+    return value.replace(/\s*;\s*(\S?)/g, (_, c: string) => (c ? `. ${c.toUpperCase()}` : '.')) as T
+  }
+  if (Array.isArray(value)) return value.map((v) => noSemicolons(v, key)) as T
+  if (value && typeof value === 'object')
+    return Object.fromEntries(Object.entries(value).map(([k, v]) => [k, noSemicolons(v, k)])) as T
+  return value
+}
+
 export function buildReport(raw: unknown, lines: Line[], offer = ''): GradeResult {
   if (countRepTurns(lines) < MIN_REP_TURNS) return { ok: false, reason: 'too_short', error: 'too few rep turns' }
 
   const checked = validateModelOutput(raw)
   if (!checked.ok) return { ok: false, reason: 'invalid', error: checked.error }
 
-  const output = capObjectionHandling(dropInventedTerms(dropRepeatedQuotes(verifyQuotes(checked.value, lines)), offer, lines))
+  const output = noSemicolons(capObjectionHandling(dropInventedTerms(dropRepeatedQuotes(verifyQuotes(checked.value, lines)), offer, lines)))
   // Delivery alone can't make a score: if the model could judge nothing, the call was too short.
   if (output.categories.every((c) => c.rating === 'na')) {
     return { ok: false, reason: 'too_short', error: 'every category was N/A' }
