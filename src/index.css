@@ -3046,8 +3046,11 @@ textarea {
 }
 
 @media (max-width: 860px) {
+  /* The top bar keeps its own height; the page below takes the rest of the
+     screen. Without this, short pages stretched the bar to fill the gap. */
   .shell {
   grid-template-columns: 1fr;
+  grid-template-rows: auto 1fr;
 }
 
   .sidebar {
@@ -3166,10 +3169,6 @@ textarea {
   margin: 14px 0 0;
 }
 
-  .launch .start-box {
-  order: -1;
-}
-
   .takeaways > div + div {
   padding-left: 0;
   border-left: none;
@@ -3201,6 +3200,30 @@ textarea {
   .owner-biz {
   display: block;
   margin-left: 0;
+}
+
+  /* Phone width: the score shows as a number only, so the table fits. */
+  .call-table .col-score {
+  width: 60px;
+}
+
+  .call-table .chip-grade {
+  display: none;
+}
+
+  .call-table .col-date {
+  width: 78px;
+}
+
+  .call-table .col-go {
+  width: 28px;
+}
+
+  /* Wrap instead of cutting text off with "…" on narrow screens. */
+  .call-table td,
+  .top-call-who .muted,
+  .struggle-example {
+  white-space: normal;
 }
 
   .result-chips {
@@ -3235,4 +3258,15 @@ textarea {
 
 .short-call .better-line {
   margin: 14px 0 0;
+}
+
+/* iPhone Safari zooms in on any field under 16px and stays zoomed, which crops
+   the right side of the page. 16px on phones stops that. */
+@media (max-width: 860px) {
+  input,
+  select,
+  textarea,
+  .focus-mode .launch .offer-editor .input {
+    font-size: 16px;
+  }
 }
