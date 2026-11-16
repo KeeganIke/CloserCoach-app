@@ -2937,12 +2937,13 @@ p.hint {
 
 /* Next focus: the same light-blue panel as the dashboard's start card, with the
    coach's notes in a frosted card on the right. */
+/* Two halves side by side when there's room for both, stacked when there isn't. */
 .pfocus {
-  display: grid;
-  grid-template-columns: minmax(0, 1fr) auto minmax(0, 380px);
-  gap: 28px;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 24px 32px;
   align-items: center;
-  padding: 20px 28px;
+  padding: 28px 32px;
   border: 1px solid #dbe6fb;
   border-radius: 16px;
   background: linear-gradient(110deg, #eef4ff 0%, #f6f9ff 55%, #e6efff 100%);
@@ -2971,8 +2972,9 @@ p.hint {
 }
 
 .pfocus-button {
-  height: 54px;
-  padding: 0 28px;
+  margin-top: 20px;
+  height: 48px;
+  padding: 0 24px;
   border-radius: 12px;
   font-size: 16px;
   white-space: nowrap;
@@ -2984,7 +2986,12 @@ p.hint {
   height: 18px;
 }
 
+.pfocus-main {
+  flex: 1 1 320px;
+}
+
 .pfocus-glass {
+  flex: 1 1 400px;
   padding: 16px 20px;
   border: 1px solid rgba(255, 255, 255, 0.9);
   border-radius: 16px;
@@ -2998,6 +3005,20 @@ p.hint {
   color: var(--muted);
   font-size: 13px;
   font-weight: 600;
+}
+
+.pfocus-steps {
+  margin: 0;
+  padding-left: 18px;
+  line-height: 1.55;
+}
+
+.pfocus-steps li + li {
+  margin-top: 4px;
+}
+
+.pfocus-glass ul + h3 {
+  margin-top: 14px;
 }
 
 .pfocus-glass h3 + p {
@@ -3140,8 +3161,8 @@ textarea {
   grid-template-columns: 1fr 1fr;
 }
 
-  .pfocus-button {
-  justify-self: start;
+  .pfocus {
+  padding: 20px;
 }
 
   .pstat:nth-child(3) {

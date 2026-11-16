@@ -5,6 +5,7 @@ import { average } from './Dashboard.jsx'
 import { changeText, changeTone } from './format.js'
 import Icon from './icons.jsx'
 import { scorecardRows } from './Report.jsx'
+import { SKILL_ADVICE } from './skillAdvice.js'
 
 const WINDOW = 5
 const ROWS = 3 // rows per column, so all three columns line up
@@ -20,7 +21,7 @@ function compare(calls, valueOf) {
   return { now, then, change: now == null || then == null ? null : now - then }
 }
 
-// Each skill: recent percent, change, best, and the coach's latest advice on it.
+// Each skill: recent percent, change and best.
 function skillStats(calls) {
   const ids = new Map()
   for (const call of calls) {
@@ -33,15 +34,11 @@ function skillStats(calls) {
       const row = scorecardRows(call.report.categories || []).find((r) => r.id === skill.id)
       return row && !row.na && row.max ? (row.earned / row.max) * 100 : null
     }
-    const advice = calls
-      .map((c) => scorecardRows(c.report.categories || []).find((r) => r.id === skill.id)?.parts.find((p) => p.improvement))
-      .find(Boolean)
     const known = calls.map(percentOf).filter((v) => v != null)
     return {
       ...skill,
       ...compare(calls, percentOf),
       best: known.length ? Math.round(Math.max(...known)) : null,
-      advice,
     }
   })
 }
@@ -187,26 +184,24 @@ export default function MyProgress({ calls, onPractice }) {
             <h2>
               <Icon name="bulb" /> Next focus: {focus.name}
             </h2>
-            <p className="pfocus-meta">{focus.now}% over your last {Math.min(WINDOW, calls.length)} calls</p>
-            {focus.advice?.improvement && <p className="pfocus-tip">{focus.advice.improvement}</p>}
+            <p className="pfocus-meta">
+              Your lowest skill: {focus.now}% of the points over your last {Math.min(WINDOW, calls.length)} calls
+            </p>
+            {SKILL_ADVICE[focus.id] && <p className="pfocus-tip">{SKILL_ADVICE[focus.id].habit}</p>}
+            <button className="button accent pfocus-button" onClick={onPractice}>
+              <Icon name="phone" /> Practice it now
+            </button>
           </div>
-          <button className="button accent pfocus-button" onClick={onPractice}>
-            <Icon name="phone" /> Practice it now
-          </button>
-          {(focus.advice?.whatHappened || focus.advice?.tryLine) && (
+          {SKILL_ADVICE[focus.id] && (
             <div className="pfocus-glass">
-              {focus.advice?.whatHappened && (
-                <>
-                  <h3>What the coach saw last time</h3>
-                  <p>{focus.advice.whatHappened}</p>
-                </>
-              )}
-              {focus.advice?.tryLine && (
-                <>
-                  <h3>Try saying</h3>
-                  <p className="pfocus-line">“{focus.advice.tryLine}”</p>
-                </>
-              )}
+              <h3>How to work on it</h3>
+              <ul className="pfocus-steps">
+                {SKILL_ADVICE[focus.id].steps.map((step) => (
+                  <li key={step}>{step}</li>
+                ))}
+              </ul>
+              <h3>Try saying something like</h3>
+              <p className="pfocus-line">“{SKILL_ADVICE[focus.id].tryLine}”</p>
             </div>
           )}
         </section>
