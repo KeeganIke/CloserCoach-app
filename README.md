@@ -12,7 +12,7 @@ Keegan Eichert, CUA Busch School AI Vibe Coding Contest, Fall 2026
 
 ## In two sentences
 
-CloserCoach is for solo entrepreneurs, freelancers and small agency owners who sell services to small businesses and have to win their own clients, often by cold calling. It lets them practice a real phone call out loud against an AI business owner who reacts to their actual offer, then gives them an honest coaching report, tied to what was actually said on the call, the moment they hang up.
+CloserCoach is for solo entrepreneurs, freelancers and small agency owners who sell services to small businesses and have to win their own clients, often by cold calling. It lets them practice a real phone call out loud against an AI business owner who reacts to their actual offer, then gives them an honest coaching report when they hang up, with feedback tied to what was actually said on the call.
 
 ## Try it in two minutes
 
