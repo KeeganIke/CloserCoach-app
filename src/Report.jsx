@@ -114,6 +114,31 @@ function CallResult({ outcome }) {
   )
 }
 
+// The owner's problems and concerns were written to the AI playing the owner, so
+// "you" means the owner. Shown to the rep, they read as being about the rep, so
+// switch them to "they" ("You keep an eye on costs" -> "They keep an eye on costs").
+const SUBJECT_BEFORE = /(^|[.!?]\s+|,\s*|\b(?:and|but|or|so|if|when|because|that|since|unless|until|while|even|though)\s+)$/i
+export function aboutOwner(text) {
+  const fixed = String(text)
+    .replace(/\byou're\b/gi, (m) => (m[0] === 'Y' ? "They're" : "they're"))
+    .replace(/\byou've\b/gi, (m) => (m[0] === 'Y' ? "They've" : "they've"))
+    .replace(/\byou'll\b/gi, (m) => (m[0] === 'Y' ? "They'll" : "they'll"))
+    .replace(/\byou'd\b/gi, (m) => (m[0] === 'Y' ? "They'd" : "they'd"))
+    .replace(/\byourself\b/gi, (m) => (m[0] === 'Y' ? 'Themselves' : 'themselves'))
+    .replace(/\byours\b/gi, (m) => (m[0] === 'Y' ? 'Theirs' : 'theirs'))
+    .replace(/\byour\b/gi, (m) => (m[0] === 'Y' ? 'Their' : 'their'))
+    .replace(/\byou\b/gi, (m, offset, whole) => {
+      const subject = SUBJECT_BEFORE.test(whole.slice(0, offset))
+      const word = subject ? 'they' : 'them'
+      return m[0] === 'Y' ? word[0].toUpperCase() + word.slice(1) : word
+    })
+  return fixed
+}
+const sentence = (text) => {
+  const t = aboutOwner(text)
+  return t.charAt(0).toUpperCase() + t.slice(1)
+}
+
 function Reveal({ hidden, coaching, name }) {
   if (!hidden) return null
   return (
@@ -134,18 +159,18 @@ function Reveal({ hidden, coaching, name }) {
       <h4>Real problems</h4>
       <ul className="report-list">
         {hidden.problems.map((p, i) => (
-          <li key={i}>{p.charAt(0).toUpperCase() + p.slice(1)}</li>
+          <li key={i}>{sentence(p)}</li>
         ))}
       </ul>
       {hidden.providerWeakness && (
         <p>
-          Already had something for this: {hidden.providerWeakness}.
+          Already had something for this: {aboutOwner(hidden.providerWeakness)}.
         </p>
       )}
       <h4>Concerns they had ready</h4>
       <ul className="report-list">
         {hidden.concerns.map((c, i) => (
-          <li key={i}>{c.charAt(0).toUpperCase() + c.slice(1)}</li>
+          <li key={i}>{sentence(c)}</li>
         ))}
       </ul>
       {hidden.personality?.length > 0 && <p className="muted">Personality: {hidden.personality.join(', ')}</p>}
