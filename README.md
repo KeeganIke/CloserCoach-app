@@ -159,7 +159,7 @@ Practicing in a general chatbot gets you a polite assistant that accepts any pit
 - **It is a real voice call,** not typing. You have to think on your feet, and pauses, filler words and rambling show up in your report just as they would cost you on the phone.
 - **The owner has something to find.** Problems are hidden and must be uncovered, which is what discovery is on a real call, and the report shows whether you found them.
 - **The grade is a fixed rubric with evidence,** computed the same way every time and tested against known calls.
-- **It rewards honesty.** Inventing results, fake clients or guarantees you do not offer costs points. The coach trains reps to sell with integrity, not just to close.
+- **It rewards honesty.** Promising guarantees or deal terms you do not offer costs points. The coach trains reps to sell with integrity, not just to close.
 
 ## Architecture
 
