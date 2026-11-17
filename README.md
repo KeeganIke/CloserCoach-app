@@ -236,6 +236,8 @@ npm test
 
 ## What I learned
 
+- **How to build software with AI, starting from zero.** Before this contest I had never built an app, set up a GitHub repository, or used AWS. I learned to describe what I wanted in plain English, test what came back, and give specific feedback until it worked.
+- **How to put a real app online.** I set up a GitHub repository and learned to commit and push my work so every change is saved and visible, then connected it to AWS Amplify so each push deploys the live site automatically. Along the way I learned to keep the OpenAI key on the server as an AWS secret and to set a spending cap so a mistake could not run up a bill.
 - **Grading needs testing just like code does.** Small wording changes in the rubric moved scores by 10 points. A fixed set of test calls, each graded three times, was the only way to know whether a change actually helped.
 - **Let the model judge and the code count.** Early versions let the model add up its own points, and the totals did not always match the rows.
 - **Realistic is harder than difficult.** The first owners either gave in too fast or blurted out their problems. Making them earn-only, with problems that come from their business, made calls feel real.
