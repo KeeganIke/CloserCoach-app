@@ -9,3 +9,6 @@ amplify_outputs*
 
 # Grader eval output
 grader-eval-results
+
+# Real practice calls (real names) for the grader eval
+scripts/grader-eval/real-calls.ts
