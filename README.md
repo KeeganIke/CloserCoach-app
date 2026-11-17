@@ -231,7 +231,7 @@ npm test
 - **Voice tone analysis.** Grading tone of voice would mean recording and storing people's real voices. I chose not to keep any audio. Your voice is streamed for the live call only, and the coach grades the transcript, which is all that is saved, and only in your own browser.
 - **"No-fit" calls,** where the owner has no need for the service at all. In testing, those calls ended with a polite "no thanks" no matter what the rep did, so there was nothing to practice and nothing to learn from the report. Every owner now has a real problem your offer could help with, and the challenge is finding it and earning the meeting.
 - **Accounts and server-side history.** The contest required that judges could use the app without logging in, so there are no accounts. Without accounts there is nowhere safe to store calls on a server, so your history stays in your own browser. Syncing across devices would be the next step, and it would need sign-in and a database.
-- **Team and manager dashboards.** CloserCoach is built around one person getting better, not around reporting on them.
+- **Team and manager dashboards.** CloserCoach is built around one person getting better, not around teams or managers.
 
 ## What I learned
 
