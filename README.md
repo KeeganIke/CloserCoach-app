@@ -158,6 +158,7 @@ Practicing in a general chatbot gets you a polite assistant that accepts any pit
 - **It is built around your offer.** The businesses, their problems and their objections come from what you actually sell and who you sell to.
 - **It is a real voice call,** not typing. You have to think on your feet, and pauses, filler words and rambling show up in your report just as they would cost you on the phone.
 - **The owner has something to find.** Problems are hidden and must be uncovered, which is what discovery is on a real call, and the report shows whether you found them.
+- **It tells you exactly how to improve.** Every skill that lost points comes with a habit to build and the exact words to say next time, every objection you did not handle well gets a better line, and your weakest skill opens first so you know what to work on before your next call.
 - **The grade is a fixed rubric with evidence,** computed the same way every time and tested against known calls.
 - **It rewards honesty.** Promising guarantees or deal terms you do not offer costs points. The coach trains reps to sell with integrity, not just to close.
 
